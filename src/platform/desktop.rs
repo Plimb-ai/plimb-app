@@ -16,10 +16,10 @@ pub fn open_folder(path: &std::path::Path) {
 }
 
 /// Sélecteur de fichier natif. `None` si annulé.
-pub fn pick_image() -> Option<PathBuf> {
+pub fn pick_media() -> Option<PathBuf> {
     rfd::FileDialog::new()
-        .set_title("Choisir une image")
-        .add_filter("Images", &["png", "jpg", "jpeg", "webp", "bmp"])
+        .set_title("Choisir une image ou une vidéo")
+        .add_filter("Images et vidéos", &["png", "jpg", "jpeg", "webp", "bmp", "mp4", "m4v", "mov"])
         .pick_file()
 }
 
@@ -34,6 +34,25 @@ pub fn gallery_roots() -> Vec<PathBuf> {
 
 pub fn request_media_permission() -> bool {
     true
+}
+
+pub fn has_media_permission() -> bool {
+    true
+}
+
+/// Enregistre une vidéo produite ; renvoie le chemin choisi.
+pub fn save_video(src: &std::path::Path, suggested: &str) -> anyhow::Result<Option<PathBuf>> {
+    let Some(path) = rfd::FileDialog::new()
+        .set_title("Enregistrer la vidéo")
+        .set_file_name(suggested)
+        .add_filter("Vidéo MP4", &["mp4"])
+        .save_file()
+    else {
+        return Ok(None);
+    };
+    let path = if path.extension().is_none() { path.with_extension("mp4") } else { path };
+    std::fs::copy(src, &path)?;
+    Ok(Some(path))
 }
 
 /// Enregistre une image PNG ; renvoie le chemin choisi.
