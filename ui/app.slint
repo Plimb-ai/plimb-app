@@ -146,7 +146,7 @@ component CategoryCard inherits Rectangle {
             height: 10px;
         }
         Text {
-            text: root.data.count + (root.data.count > 1 ? " modèles" : " modèle");
+            text: @tr("{n} model" | "{n} models" % root.data.count);
             font-size: Theme.fs-small;
             color: Theme.text-muted;
         }
@@ -212,7 +212,7 @@ component ModelCard inherits Card {
                     thickness: 1.5px;
                 }
                 Text {
-                    text: "Recommandé";
+                    text: @tr("Recommended");
                     font-size: 12px;
                     color: Theme.text-muted;
                     vertical-alignment: center;
@@ -252,7 +252,7 @@ component ModelCard inherits Card {
                 color: root.data.state == 2 ? Theme.success : Theme.text-muted;
             }
             Text {
-                text: root.data.size + (root.data.state == 2 ? " · installé" : "") + " · Licence " + root.data.license;
+                text: (root.data.state == 2 ? @tr("{} · installed · License {}", root.data.size, root.data.license) : @tr("{} · License {}", root.data.size, root.data.license));
                 font-size: Theme.fs-small;
                 color: Theme.text-muted;
                 vertical-alignment: center;
@@ -269,7 +269,7 @@ component ModelCard inherits Card {
                 color: Theme.accent;
             }
             Text {
-                text: "Voir la fiche sur Hugging Face";
+                text: @tr("View model card on Hugging Face");
                 font-size: Theme.fs-small;
                 color: Theme.accent;
                 vertical-alignment: center;
@@ -308,7 +308,7 @@ component ModelCard inherits Card {
                 wrap: word-wrap;
             }
             PillButton {
-                text: root.data.state == 3 ? "Réessayer" : "Télécharger · " + root.data.size;
+                text: root.data.state == 3 ? @tr("Retry") : @tr("Download · {}", root.data.size);
                 icon: "download";
                 variant: 1;
                 clicked => {
@@ -327,7 +327,7 @@ component ModelCard inherits Card {
                     vertical-alignment: center;
                 }
                 PillButton {
-                    text: "Annuler";
+                    text: @tr("Cancel");
                     variant: 3;
                     height: 36px;
                     clicked => {
@@ -340,7 +340,7 @@ component ModelCard inherits Card {
             }
         }
         if root.data.state == 2: PillButton {
-            text: "Essayer";
+            text: @tr("Try it");
             icon: "chevron-right";
             variant: 0;
             clicked => {
@@ -381,7 +381,7 @@ component ModelGate inherits Rectangle {
             text: root.data.state == 1 ? root.data.progress-text
                 : root.data.state == 2 ? root.status-text
                 : root.data.state == 3 ? root.data.progress-text
-                : "Ce modèle n'est pas encore sur votre appareil (" + root.data.size + "). Téléchargez-le une fois, il fonctionnera ensuite hors ligne.";
+                : @tr("This model is not on your device yet ({}). Download it once and it will then work offline.", root.data.size);
             font-size: Theme.fs-body;
             color: root.data.state == 3 || root.status == 3 ? Theme.danger : Theme.text-muted;
             horizontal-alignment: center;
@@ -404,14 +404,14 @@ component ModelGate inherits Rectangle {
         HorizontalLayout {
             alignment: center;
             if root.data.state == 0 || root.data.state == 3: PillButton {
-                text: "Télécharger";
+                text: @tr("Download");
                 icon: "download";
                 clicked => {
                     root.download();
                 }
             }
             if root.data.state == 1: PillButton {
-                text: "Annuler";
+                text: @tr("Cancel");
                 variant: 2;
                 clicked => {
                     root.cancel();
@@ -633,6 +633,8 @@ export component AppWindow inherits Window {
     callback apply-params(GenParams);
     callback reset-params();
     callback set-theme(int);
+    callback set-language(int);
+    in-out property <int> language;
     callback set-auto-update(bool);
     callback check-update();
     callback install-update();
@@ -772,7 +774,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         Text {
-                            text: "Les modèles d'IA conçus par Plimb, directement sur votre appareil. Tout fonctionne en local : vos textes et vos images ne quittent jamais votre machine.";
+                            text: @tr("AI models built by Plimb, right on your device. Everything runs locally: your texts and images never leave your machine.");
                             font-size: Theme.fs-body;
                             color: Theme.text-muted;
                             wrap: word-wrap;
@@ -791,7 +793,7 @@ export component AppWindow inherits Window {
                                     color: Theme.accent;
                                 }
                                 Text {
-                                    text: "Plimb Studio " + root.update-version + " est disponible.";
+                                    text: @tr("Plimb Studio {} is available.", root.update-version);
                                     color: Theme.text;
                                     font-weight: 600;
                                     vertical-alignment: center;
@@ -799,7 +801,7 @@ export component AppWindow inherits Window {
                                     wrap: word-wrap;
                                 }
                                 PillButton {
-                                    text: "Voir";
+                                    text: @tr("View");
                                     height: 38px;
                                     clicked => {
                                         root.update-open = true;
@@ -826,12 +828,12 @@ export component AppWindow inherits Window {
                                 VerticalLayout {
                                     spacing: 2px;
                                     Text {
-                                        text: "100 % local, 100 % Rust";
+                                        text: @tr("100% local, 100% Rust");
                                         font-weight: 700;
                                         color: Theme.text;
                                     }
                                     Text {
-                                        text: "Après un premier téléchargement, chaque modèle fonctionne hors ligne sur le processeur de votre appareil.";
+                                        text: @tr("After a first download, every model runs offline on your device's processor.");
                                         font-size: Theme.fs-small;
                                         color: Theme.text-muted;
                                         wrap: word-wrap;
@@ -844,7 +846,7 @@ export component AppWindow inherits Window {
                             height: 6px;
                         }
                         SectionTitle {
-                            text: "Que voulez-vous faire ?";
+                            text: @tr("What would you like to do?");
                         }
 
                         property <int> cols: home.width > 760px ? 3 : home.width > 480px ? 2 : 1;
@@ -889,7 +891,7 @@ export component AppWindow inherits Window {
                                     alignment: center;
                                     horizontal-stretch: 1;
                                     Text {
-                                        text: "Gérer les modèles";
+                                        text: @tr("Manage models");
                                         font-weight: 700;
                                         color: Theme.text;
                                     }
@@ -959,7 +961,7 @@ export component AppWindow inherits Window {
                             wrap: word-wrap;
                         }
                         Text {
-                            text: root.current-category.count + (root.current-category.count > 1 ? " modèles disponibles" : " modèle disponible");
+                            text: @tr("{n} model available" | "{n} models available" % root.current-category.count);
                             font-size: Theme.fs-small;
                             color: Theme.text-faint;
                             horizontal-alignment: center;
@@ -994,7 +996,7 @@ export component AppWindow inherits Window {
         if root.page == 2: Rectangle {
             VerticalLayout {
                 TopBar {
-                    title: "Modèles (" + root.models.length + ")";
+                    title: @tr("Models ({})", root.models.length);
                     left-icon: "close";
                     left-clicked => {
                         root.go-back();
@@ -1020,7 +1022,7 @@ export component AppWindow inherits Window {
                                 wrap: word-wrap;
                             }
                             if !root.mobile: PillButton {
-                                text: "Dossier";
+                                text: @tr("Folder");
                                 icon: "folder";
                                 variant: 2;
                                 height: 38px;
@@ -1049,7 +1051,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         Text {
-                            text: "Tous les modèles proviennent de huggingface.co/plimb. De nouveaux modèles arriveront avec les mises à jour de l'application.";
+                            text: @tr("All models come from huggingface.co/plimb. New models will arrive with app updates.");
                             font-size: Theme.fs-small;
                             color: Theme.text-faint;
                             wrap: word-wrap;
@@ -1064,7 +1066,7 @@ export component AppWindow inherits Window {
         if root.page == 3: Rectangle {
             VerticalLayout {
                 TopBar {
-                    title: "Discussion";
+                    title: @tr("Chat");
                     color-index: 0;
                     subtitle: root.active-model.name;
                     left-clicked => {
@@ -1115,14 +1117,14 @@ export component AppWindow inherits Window {
                             }
                         }
                         Text {
-                            text: "Discutez avec Gladios";
+                            text: @tr("Chat with Gladios");
                             font-size: 26px;
                             font-weight: 800;
                             color: Theme.text;
                             horizontal-alignment: center;
                         }
                         Text {
-                            text: "Ce modèle répond en anglais. Essayez une de ces questions :";
+                            text: @tr("This model answers in English. Try one of these questions:");
                             color: Theme.text-muted;
                             horizontal-alignment: center;
                             wrap: word-wrap;
@@ -1164,7 +1166,7 @@ export component AppWindow inherits Window {
                     Composer {
                         busy: root.generating;
                         enabled: root.active-model.state == 2 && root.model-status == 2;
-                        placeholder: "Écrivez un message en anglais…";
+                        placeholder: @tr("Write a message in English…");
                         text <=> root.chat-draft;
                         send(t) => {
                             root.send-message(t);
@@ -1181,7 +1183,7 @@ export component AppWindow inherits Window {
         if root.page == 4: Rectangle {
             VerticalLayout {
                 TopBar {
-                    title: "Atelier d'histoires";
+                    title: @tr("Story workshop");
                     color-index: 1;
                     subtitle: root.active-model.name;
                     left-clicked => {
@@ -1222,7 +1224,7 @@ export component AppWindow inherits Window {
                         spacing: 12px;
 
                         Text {
-                            text: "Écrivez le début d'une histoire (en anglais), Gladios imagine la suite.";
+                            text: @tr("Write the beginning of a story (in English), Gladios imagines the rest.");
                             color: Theme.text-muted;
                             wrap: word-wrap;
                         }
@@ -1263,7 +1265,7 @@ export component AppWindow inherits Window {
                             spacing: 10px;
                             alignment: start;
                             PillButton {
-                                text: root.generating ? "Arrêter" : "Écrire l'histoire";
+                                text: root.generating ? @tr("Stop") : @tr("Write the story");
                                 icon: root.generating ? "stop" : "spark";
                                 tint: root.generating ? Theme.danger : Theme.c-story;
                                 enabled: root.generating || root.story-prompt != "";
@@ -1276,7 +1278,7 @@ export component AppWindow inherits Window {
                                 }
                             }
                             PillButton {
-                                text: "Effacer";
+                                text: @tr("Clear");
                                 variant: 2;
                                 enabled: !root.generating;
                                 clicked => {
@@ -1297,7 +1299,7 @@ export component AppWindow inherits Window {
                                         color: Theme.c-story;
                                     }
                                     Text {
-                                        text: "Votre histoire";
+                                        text: @tr("Your story");
                                         font-weight: 700;
                                         color: Theme.text;
                                         horizontal-stretch: 1;
@@ -1328,7 +1330,7 @@ export component AppWindow inherits Window {
         if root.page == 5: Rectangle {
             VerticalLayout {
                 TopBar {
-                    title: "Détourage couleur";
+                    title: @tr("Color keying");
                     color-index: 2;
                     subtitle: root.active-model.name;
                     left-clicked => {
@@ -1377,7 +1379,7 @@ export component AppWindow inherits Window {
                                     }
                                 }
                                 Text {
-                                    text: "Choisissez une image ou une vidéo avec un fond vert";
+                                    text: @tr("Choose an image or a video with a green background");
                                     color: Theme.text-muted;
                                     horizontal-alignment: center;
                                 }
@@ -1394,7 +1396,7 @@ export component AppWindow inherits Window {
                                 background: Theme.scrim;
                                 border-radius: Theme.radius-l;
                                 Text {
-                                    text: "Détourage en cours…";
+                                    text: @tr("Removing background…");
                                     color: white;
                                     font-weight: 600;
                                 }
@@ -1410,7 +1412,7 @@ export component AppWindow inherits Window {
                                     padding: 12px;
                                     spacing: 8px;
                                     Text {
-                                        text: "Détourage de la vidéo · " + root.chroma-progress-text;
+                                        text: @tr("Processing video · {}", root.chroma-progress-text);
                                         color: white;
                                         font-size: Theme.fs-small;
                                         overflow: elide;
@@ -1434,7 +1436,7 @@ export component AppWindow inherits Window {
                             alignment: center;
                             Segmented {
                                 width: 280px;
-                                options: ["Original", "Résultat", "Masque"];
+                                options: [@tr("Original"), @tr("Result"), @tr("Mask")];
                                 selected <=> root.chroma-view;
                                 changed => {
                                     root.chroma-refresh();
@@ -1446,7 +1448,7 @@ export component AppWindow inherits Window {
                             spacing: 10px;
                             alignment: center;
                             PillButton {
-                                text: root.chroma-has-image ? "Changer" : "Image ou vidéo";
+                                text: root.chroma-has-image ? @tr("Change") : @tr("Image or video");
                                 icon: "image";
                                 variant: 1;
                                 enabled: !root.chroma-busy;
@@ -1455,7 +1457,7 @@ export component AppWindow inherits Window {
                                 }
                             }
                             if !(root.chroma-busy && root.chroma-is-video): PillButton {
-                                text: root.chroma-is-video ? "Détourer la vidéo" : "Détourer";
+                                text: root.chroma-is-video ? @tr("Process video") : @tr("Remove background");
                                 icon: "drop";
                                 tint: Theme.c-chroma;
                                 enabled: root.chroma-has-image && !root.chroma-busy;
@@ -1464,7 +1466,7 @@ export component AppWindow inherits Window {
                                 }
                             }
                             if root.chroma-busy && root.chroma-is-video: PillButton {
-                                text: "Arrêter";
+                                text: @tr("Stop");
                                 icon: "stop";
                                 tint: Theme.danger;
                                 clicked => {
@@ -1493,7 +1495,7 @@ export component AppWindow inherits Window {
                                 padding: 20px;
                                 spacing: 14px;
                                 Text {
-                                    text: "Couleur à retirer";
+                                    text: @tr("Color to remove");
                                     font-weight: 700;
                                     color: Theme.text;
                                 }
@@ -1501,7 +1503,7 @@ export component AppWindow inherits Window {
                                     spacing: 8px;
                                     alignment: start;
                                     Chip {
-                                        text: "Vert";
+                                        text: @tr("Green");
                                         swatch: #33d94d;
                                         selected: root.chroma-preset == 0;
                                         clicked => {
@@ -1512,7 +1514,7 @@ export component AppWindow inherits Window {
                                         }
                                     }
                                     Chip {
-                                        text: "Bleu";
+                                        text: @tr("Blue");
                                         swatch: #2a5cff;
                                         selected: root.chroma-preset == 1;
                                         clicked => {
@@ -1523,7 +1525,7 @@ export component AppWindow inherits Window {
                                         }
                                     }
                                     Chip {
-                                        text: "Autre";
+                                        text: @tr("Other");
                                         swatch: rgb(root.chroma-r * 255, root.chroma-g * 255, root.chroma-b * 255);
                                         selected: root.chroma-preset == 2;
                                         clicked => {
@@ -1534,26 +1536,26 @@ export component AppWindow inherits Window {
                                 if root.chroma-preset == 2: VerticalLayout {
                                     spacing: 6px;
                                     LabeledSlider {
-                                        label: "Rouge";
+                                        label: @tr("Red");
                                         value <=> root.chroma-r;
                                     }
                                     LabeledSlider {
-                                        label: "Vert";
+                                        label: @tr("Green");
                                         value <=> root.chroma-g;
                                     }
                                     LabeledSlider {
-                                        label: "Bleu";
+                                        label: @tr("Blue");
                                         value <=> root.chroma-b;
                                     }
                                 }
                                 Text {
-                                    text: "Le modèle a été entraîné en priorité sur le vert ; les autres couleurs sont expérimentales.";
+                                    text: @tr("The model was trained mainly on green; other colors are experimental.");
                                     font-size: 12px;
                                     color: Theme.text-faint;
                                     wrap: word-wrap;
                                 }
                                 LabeledSlider {
-                                    label: "Seuil de détection";
+                                    label: @tr("Detection threshold");
                                     minimum: 0.05;
                                     maximum: 0.95;
                                     value <=> root.chroma-threshold;
@@ -1563,7 +1565,7 @@ export component AppWindow inherits Window {
                                 }
                                 HorizontalLayout {
                                     Text {
-                                        text: "Bords adoucis";
+                                        text: @tr("Soft edges");
                                         color: Theme.text;
                                         vertical-alignment: center;
                                         horizontal-stretch: 1;
@@ -1576,22 +1578,22 @@ export component AppWindow inherits Window {
                                     }
                                 }
                                 Text {
-                                    text: "Arrière-plan";
+                                    text: @tr("Background");
                                     color: Theme.text;
                                 }
                                 if !root.chroma-is-video: Segmented {
-                                    options: ["Transparent", "Blanc", "Noir"];
+                                    options: [@tr("Transparent"), @tr("White"), @tr("Black")];
                                     selected <=> root.chroma-bg;
                                     changed => {
                                         root.chroma-refresh();
                                     }
                                 }
                                 if root.chroma-is-video: Segmented {
-                                    options: ["Noir", "Blanc"];
+                                    options: [@tr("Black"), @tr("White")];
                                     selected <=> root.chroma-video-bg;
                                 }
                                 if root.chroma-is-video: Text {
-                                    text: "Les vidéos MP4 ne gèrent pas la transparence : le fond retiré est remplacé par la couleur choisie. Seules les vidéos H.264 sont acceptées.";
+                                    text: @tr("MP4 videos do not support transparency: the removed background is replaced by the chosen color. Only H.264 videos are supported.");
                                     font-size: 12px;
                                     color: Theme.text-faint;
                                     wrap: word-wrap;
@@ -1639,19 +1641,19 @@ export component AppWindow inherits Window {
                                 color: Theme.text;
                             }
                             Text {
-                                text: "Version " + root.app-version;
+                                text: @tr("Version {}", root.app-version);
                                 font-size: 12px;
                                 color: Theme.text-muted;
                             }
                         }
                     }
                     for item[i] in [
-                        { icon: "spark", label: "Accueil" },
-                        { icon: "layers", label: "Modèles" },
-                        { icon: "settings", label: "Réglages" },
-                        { icon: "refresh", label: "Mises à jour" },
-                        { icon: "external", label: "Plimb sur Hugging Face" },
-                        { icon: "external", label: "Code source (GitHub)" },
+                        { icon: "spark", label: @tr("Home") },
+                        { icon: "layers", label: @tr("Models") },
+                        { icon: "settings", label: @tr("Settings") },
+                        { icon: "refresh", label: @tr("Updates") },
+                        { icon: "external", label: @tr("Plimb on Hugging Face") },
+                        { icon: "external", label: @tr("Source code (GitHub)") },
                     ]: Rectangle {
                         height: 50px;
                         border-radius: 25px;
@@ -1734,7 +1736,7 @@ export component AppWindow inherits Window {
                             VerticalLayout {
                                 horizontal-stretch: 1;
                                 Text {
-                                    text: "Réglages";
+                                    text: @tr("Settings");
                                     font-size: 24px;
                                     font-weight: 800;
                                     color: Theme.text;
@@ -1753,12 +1755,25 @@ export component AppWindow inherits Window {
                             }
                         }
                         Text {
-                            text: "Thème";
+                            text: @tr("Language");
                             font-weight: 700;
                             color: Theme.text;
                         }
                         Segmented {
-                            options: ["Auto", "Clair", "Sombre"];
+                            options: [@tr("System"), "Français", "English"];
+                            selected: root.language;
+                            changed(i) => {
+                                root.language = i;
+                                root.set-language(i);
+                            }
+                        }
+                        Text {
+                            text: @tr("Theme");
+                            font-weight: 700;
+                            color: Theme.text;
+                        }
+                        Segmented {
+                            options: [@tr("Auto"), @tr("Light"), @tr("Dark")];
                             selected: Theme.mode;
                             changed(i) => {
                                 root.set-theme(i);
@@ -1769,13 +1784,13 @@ export component AppWindow inherits Window {
                             background: Theme.outline;
                         }
                         Text {
-                            text: "Mises à jour";
+                            text: @tr("Updates");
                             font-weight: 700;
                             color: Theme.text;
                         }
                         HorizontalLayout {
                             Text {
-                                text: "Rechercher au démarrage";
+                                text: @tr("Check on startup");
                                 color: Theme.text;
                                 vertical-alignment: center;
                                 horizontal-stretch: 1;
@@ -1790,7 +1805,7 @@ export component AppWindow inherits Window {
                         HorizontalLayout {
                             alignment: start;
                             PillButton {
-                                text: root.update-state == 1 ? "Recherche…" : "Rechercher maintenant";
+                                text: root.update-state == 1 ? @tr("Checking…") : @tr("Check now");
                                 icon: "refresh";
                                 variant: 2;
                                 enabled: root.update-state != 1 && root.update-state != 2;
@@ -1801,7 +1816,7 @@ export component AppWindow inherits Window {
                         }
                         if root.update-available || root.update-message != "": HorizontalLayout {
                             Text {
-                                text: root.update-available ? "Version " + root.update-version + " disponible" : root.update-message;
+                                text: root.update-available ? @tr("Version {} available", root.update-version) : root.update-message;
                                 font-size: Theme.fs-small;
                                 color: root.update-state == 3 ? Theme.danger : Theme.text-muted;
                                 vertical-alignment: center;
@@ -1810,7 +1825,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         if root.update-available: PillButton {
-                            text: "Installer la version " + root.update-version;
+                            text: @tr("Install version {}", root.update-version);
                             icon: "download";
                             clicked => {
                                 root.settings-open = false;
@@ -1822,7 +1837,7 @@ export component AppWindow inherits Window {
                             background: Theme.outline;
                         }
                         Text {
-                            text: "Stockage";
+                            text: @tr("Storage");
                             font-weight: 700;
                             color: Theme.text;
                         }
@@ -1836,7 +1851,7 @@ export component AppWindow inherits Window {
                             spacing: 10px;
                             alignment: start;
                             PillButton {
-                                text: "Gérer les modèles";
+                                text: @tr("Manage models");
                                 icon: "layers";
                                 variant: 2;
                                 clicked => {
@@ -1845,7 +1860,7 @@ export component AppWindow inherits Window {
                                 }
                             }
                             if !root.mobile: PillButton {
-                                text: "Dossier";
+                                text: @tr("Folder");
                                 icon: "folder";
                                 variant: 2;
                                 clicked => {
@@ -1858,12 +1873,12 @@ export component AppWindow inherits Window {
                             background: Theme.outline;
                         }
                         Text {
-                            text: "À propos";
+                            text: @tr("About");
                             font-weight: 700;
                             color: Theme.text;
                         }
                         Text {
-                            text: "Plimb Studio exécute les modèles de Plimb entièrement sur votre appareil, grâce à un moteur d'inférence écrit en Rust. Les modèles sont distribués sous licence MIT ; consultez leur fiche pour les données d'entraînement et leurs limites.";
+                            text: @tr("Plimb Studio runs Plimb's models entirely on your device, with an inference engine written in Rust. The models are released under the MIT license; see their model cards for training data and limitations.");
                             font-size: Theme.fs-small;
                             color: Theme.text-muted;
                             wrap: word-wrap;
@@ -1917,7 +1932,7 @@ export component AppWindow inherits Window {
                         spacing: 12px;
                         HorizontalLayout {
                             Text {
-                                text: "Paramètres de génération";
+                                text: @tr("Generation settings");
                                 font-size: 20px;
                                 font-weight: 800;
                                 color: Theme.text;
@@ -1932,7 +1947,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         LabeledSlider {
-                            label: "Longueur maximale (tokens)";
+                            label: @tr("Maximum length (tokens)");
                             minimum: 16;
                             maximum: 512;
                             step: 1;
@@ -1954,19 +1969,19 @@ export component AppWindow inherits Window {
                             value <=> root.edit-params.top-p;
                         }
                         LabeledSlider {
-                            label: "Température";
+                            label: @tr("Temperature");
                             minimum: 0;
                             maximum: 2;
                             value <=> root.edit-params.temperature;
                         }
                         LabeledSlider {
-                            label: "Pénalité de répétition";
+                            label: @tr("Repetition penalty");
                             minimum: 1;
                             maximum: 2;
                             value <=> root.edit-params.repetition-penalty;
                         }
                         Text {
-                            text: "Une température basse donne des réponses plus prévisibles, une température haute plus créatives.";
+                            text: @tr("A low temperature gives more predictable answers, a high temperature more creative ones.");
                             font-size: 12px;
                             color: Theme.text-faint;
                             wrap: word-wrap;
@@ -1974,7 +1989,7 @@ export component AppWindow inherits Window {
                         HorizontalLayout {
                             spacing: 8px;
                             PillButton {
-                                text: "Par défaut";
+                                text: @tr("Defaults");
                                 variant: 2;
                                 clicked => {
                                     root.reset-params();
@@ -1985,7 +2000,7 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                             }
                             PillButton {
-                                text: "Annuler";
+                                text: @tr("Cancel");
                                 variant: 3;
                                 clicked => {
                                     root.params-open = false;
@@ -2031,14 +2046,14 @@ export component AppWindow inherits Window {
                             alignment: center;
                             horizontal-stretch: 1;
                             Text {
-                                text: root.update-available ? "Nouvelle version " + root.update-version : "Mises à jour";
+                                text: root.update-available ? @tr("New version {}", root.update-version) : @tr("Updates");
                                 font-size: 20px;
                                 font-weight: 800;
                                 color: Theme.text;
                                 wrap: word-wrap;
                             }
                             Text {
-                                text: "Version installée : " + root.app-version;
+                                text: @tr("Installed version: {}", root.app-version);
                                 font-size: 12px;
                                 color: Theme.text-muted;
                             }
@@ -2063,7 +2078,7 @@ export component AppWindow inherits Window {
                         }
                     }
                     if !root.update-available: Text {
-                        text: root.update-state == 1 ? "Recherche d'une nouvelle version…" : root.update-message;
+                        text: root.update-state == 1 ? @tr("Looking for a new version…") : root.update-message;
                         color: root.update-state == 3 ? Theme.danger : Theme.text-muted;
                         wrap: word-wrap;
                     }
@@ -2088,7 +2103,7 @@ export component AppWindow inherits Window {
                         spacing: 8px;
                         alignment: end;
                         PillButton {
-                            text: root.update-available ? "Plus tard" : "Fermer";
+                            text: root.update-available ? @tr("Later") : @tr("Close");
                             variant: 3;
                             enabled: root.update-state != 2;
                             clicked => {
@@ -2096,7 +2111,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         if !root.update-available: PillButton {
-                            text: "Rechercher";
+                            text: @tr("Check");
                             icon: "refresh";
                             variant: 2;
                             enabled: root.update-state != 1;
@@ -2105,7 +2120,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         if root.update-available: PillButton {
-                            text: root.mobile ? "Télécharger l'APK" : "Mettre à jour";
+                            text: root.mobile ? @tr("Download the APK") : @tr("Update");
                             icon: "download";
                             enabled: root.update-state != 2;
                             clicked => {
@@ -2122,7 +2137,7 @@ export component AppWindow inherits Window {
                 TouchArea { }
                 VerticalLayout {
                     TopBar {
-                        title: "Choisir une image ou une vidéo";
+                        title: @tr("Choose an image or a video");
                         left-icon: "close";
                         left-clicked => {
                             root.gallery-open = false;
@@ -2141,7 +2156,7 @@ export component AppWindow inherits Window {
                         HorizontalLayout {
                             alignment: center;
                             PillButton {
-                                text: "Réessayer";
+                                text: @tr("Retry");
                                 icon: "refresh";
                                 clicked => {
                                     root.gallery-retry();

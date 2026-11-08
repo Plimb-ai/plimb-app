@@ -6,7 +6,8 @@ use crate::ai::gpt::SamplingParams;
 use crate::ai::text::{TextModel, Turn};
 use crate::catalog::{self, human_size, Engine, ModelInfo, Task};
 use crate::settings::{GenSettings, Settings};
-use crate::{net, platform, update};
+use crate::i18n::{fr, t};
+use crate::{net, platform, tf, update};
 use slint::{ComponentHandle, Model, ModelRc, SharedPixelBuffer, SharedString, VecModel, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -153,7 +154,7 @@ fn spawn_worker(ui: Weak<AppWindow>) -> Sender<Job> {
                     }
                     Job::Chat { history, message, max, params, stop } => {
                         let Some((_, Loaded::Text(model))) = current.as_mut() else {
-                            let _ = ui.upgrade_in_event_loop(|ui| on_text_done(&ui, Err("modèle non chargé".into()), 0, 0.0));
+                            let _ = ui.upgrade_in_event_loop(|ui| on_text_done(&ui, Err(t("model not loaded", "modèle non chargé").into()), 0, 0.0));
                             continue;
                         };
                         let t = Instant::now();
@@ -170,7 +171,7 @@ fn spawn_worker(ui: Weak<AppWindow>) -> Sender<Job> {
                     }
                     Job::Story { prompt, max, params, stop } => {
                         let Some((_, Loaded::Text(model))) = current.as_mut() else {
-                            let _ = ui.upgrade_in_event_loop(|ui| on_text_done(&ui, Err("modèle non chargé".into()), 0, 0.0));
+                            let _ = ui.upgrade_in_event_loop(|ui| on_text_done(&ui, Err(t("model not loaded", "modèle non chargé").into()), 0, 0.0));
                             continue;
                         };
                         let t = Instant::now();
@@ -191,14 +192,14 @@ fn spawn_worker(ui: Weak<AppWindow>) -> Sender<Job> {
                                 let t = Instant::now();
                                 m.segment(&image, color, max_side).map(|p| (p, t.elapsed().as_secs_f32())).map_err(|e| format!("{e:#}"))
                             }
-                            _ => Err("modèle non chargé".into()),
+                            _ => Err(t("model not loaded", "modèle non chargé").into()),
                         };
                         let _ = ui.upgrade_in_event_loop(move |ui| on_segmented(&ui, r));
                     }
                     Job::SegmentVideo(job) => {
                         let r = match current.as_ref() {
                             Some((_, Loaded::Codelor(m))) => process_video(m, &job, &ui),
-                            _ => Err(anyhow::anyhow!("modèle non chargé")),
+                            _ => Err(anyhow::anyhow!(t("model not loaded", "modèle non chargé"))),
                         };
                         let stopped = job.stop.load(Ordering::Relaxed);
                         let out = job.output.clone();
@@ -217,7 +218,7 @@ fn spawn_worker(ui: Weak<AppWindow>) -> Sender<Job> {
 fn model_data(m: &'static ModelInfo, st: &State) -> ModelData {
     let installed = is_installed(m);
     let (state, progress, text) = match st.downloads.get(m.id) {
-        Some(d) if d.error.is_some() => (3, 0.0, format!("Échec du téléchargement : {}", d.error.clone().unwrap_or_default())),
+        Some(d) if d.error.is_some() => (3, 0.0, tf!("Download failed: {}", "Échec du téléchargement : {}", d.error.clone().unwrap_or_default())),
         Some(d) => (1, d.progress, d.text.clone()),
         None if installed => (2, 1.0, String::new()),
         None => (0, 0.0, String::new()),
@@ -228,9 +229,9 @@ fn model_data(m: &'static ModelInfo, st: &State) -> ModelData {
         repo_url: m.url().into(),
         task_id: m.task.id().into(),
         task_title: m.task.title().into(),
-        description: m.description.into(),
+        description: m.localized_description().into(),
         size: human_size(m.total_size()).into(),
-        details: m.details.join(" · ").into(),
+        details: m.localized_details().join(" · ").into(),
         state,
         progress,
         progress_text: text.into(),
@@ -281,13 +282,14 @@ fn refresh_models(ui: &AppWindow) {
         }
         let installed = catalog::MODELS.iter().filter(|m| is_installed(m)).count();
         let used = dir_size(&platform::models_dir());
-        let mut text = format!(
-            "{installed} modèle{} installé{} sur {} · {} utilisés",
-            if installed > 1 { "s" } else { "" },
-            if installed > 1 { "s" } else { "" },
-            catalog::MODELS.len(),
-            human_size(used)
-        );
+        let total = catalog::MODELS.len();
+        let used = human_size(used);
+        let mut text = if fr() {
+            let s = if installed > 1 { "s" } else { "" };
+            format!("{installed} modèle{s} installé{s} sur {total} · {used} utilisés")
+        } else {
+            format!("{installed} of {total} models installed · {used} used")
+        };
         if !platform::is_mobile() {
             text.push_str(&format!(" · {}", platform::models_dir().display()));
         }
@@ -347,11 +349,11 @@ fn sync_model_status(ui: &AppWindow) {
         } else if st.loaded == Some(m.id) {
             (2, String::new())
         } else if st.loading == Some(m.id) {
-            (1, "Chargement du modèle en mémoire…".to_string())
+            (1, t("Loading the model into memory…", "Chargement du modèle en mémoire…").to_string())
         } else if let Some(e) = &st.load_error {
-            (3, format!("Impossible de charger le modèle : {e}"))
+            (3, tf!("Could not load the model: {e}", "Impossible de charger le modèle : {e}"))
         } else {
-            (1, "Préparation…".to_string())
+            (1, t("Preparing…", "Préparation…").to_string())
         };
         ui.set_model_status(status);
         ui.set_model_status_text(text.into());
@@ -410,7 +412,7 @@ fn on_piece(ui: &AppWindow, piece: &str) {
 
 fn on_text_done(ui: &AppWindow, res: Result<String, String>, n: usize, secs: f32) {
     let speed = if secs > 0.0 { n as f32 / secs } else { 0.0 };
-    let info = format!("{n} tokens · {:.1} tokens/s", speed).replace('.', ",");
+    let info = if fr() { format!("{n} tokens · {:.1} tokens/s", speed).replace('.', ",") } else { format!("{n} tokens · {:.1} tokens/s", speed) };
     with_state(|st| {
         st.generating = false;
         match st.task {
@@ -423,20 +425,20 @@ fn on_text_done(ui: &AppWindow, res: Result<String, String>, n: usize, secs: f32
                             let user = if n >= 2 { st.messages.row_data(n - 2).unwrap().text.to_string() } else { String::new() };
                             st.turns.push(Turn { user, bot: text.clone() });
                             if text.trim().is_empty() {
-                                m.text = "(pas de réponse)".into();
+                                m.text = t("(no answer)", "(pas de réponse)").into();
                             } else {
                                 m.text = text.trim().into();
                             }
                             m.info = info.clone().into();
                         }
-                        Err(e) => m.text = format!("Erreur : {e}").into(),
+                        Err(e) => m.text = tf!("Error: {e}", "Erreur : {e}").into(),
                     }
                     st.messages.set_row_data(n - 1, m);
                 }
             }
             Task::Story => match &res {
                 Ok(_) => ui.set_story_info(info.clone().into()),
-                Err(e) => ui.set_story_info(format!("Erreur : {e}").into()),
+                Err(e) => ui.set_story_info(tf!("Error: {e}", "Erreur : {e}").into()),
             },
             _ => {}
         }
@@ -491,7 +493,7 @@ fn start_story(ui: &AppWindow, prompt: String) {
     });
     if started {
         ui.set_story_output(prompt.into());
-        ui.set_story_info("Écriture en cours…".into());
+        ui.set_story_info(t("Writing…", "Écriture en cours…").into());
         ui.set_generating(true);
     }
 }
@@ -574,8 +576,13 @@ fn chroma_refresh(ui: &AppWindow) {
             let t = ui.get_chroma_threshold();
             let pct = prob.iter().filter(|p| **p >= t).count() as f32 / prob.len().max(1) as f32 * 100.0;
             let base = ui.get_chroma_info().to_string();
-            let base = base.split(" · Couleur détectée").next().unwrap_or("").to_string();
-            ui.set_chroma_info(format!("{base} · Couleur détectée sur {:.1} % de l'image", pct).replace('.', ",").into());
+            let base = base.split(" — ").next().unwrap_or("").to_string();
+            let detected = if fr() {
+                format!("couleur détectée sur {:.1} % de l'image", pct).replace('.', ",")
+            } else {
+                format!("color detected on {:.1}% of the image", pct)
+            };
+            ui.set_chroma_info(format!("{base} — {detected}").into());
         }
     });
 }
@@ -597,16 +604,20 @@ fn chroma_set_video(ui: &AppWindow, path: PathBuf) {
             ui.set_chroma_has_result(false);
             ui.set_chroma_progress(0.0);
             ui.set_chroma_info(
-                format!(
-                    "Vidéo {} × {} · {:.0} images/s · {:.1} s · le son n'est pas conservé",
-                    info.width, info.height, info.fps, info.seconds
-                )
-                .replace('.', ",")
+                if fr() {
+                    format!(
+                        "Vidéo {} × {} · {:.0} images/s · {:.1} s · le son n'est pas conservé",
+                        info.width, info.height, info.fps, info.seconds
+                    )
+                    .replace('.', ",")
+                } else {
+                    format!("Video {} × {} · {:.0} fps · {:.1} s · audio is not kept", info.width, info.height, info.fps, info.seconds)
+                }
                 .into(),
             );
             chroma_refresh(ui);
         }
-        Err(e) => show_toast(ui, format!("Vidéo illisible : {e:#}")),
+        Err(e) => show_toast(ui, tf!("Unreadable video: {e:#}", "Vidéo illisible : {e:#}")),
     }
 }
 
@@ -635,7 +646,7 @@ fn chroma_set_image(ui: &AppWindow, path: PathBuf) {
             ui.set_chroma_info(format!("{w} × {h} px").into());
             chroma_refresh(ui);
         }
-        Err(e) => show_toast(ui, format!("Image illisible : {e}")),
+        Err(e) => show_toast(ui, tf!("Unreadable image: {e}", "Image illisible : {e}")),
     }
 }
 
@@ -668,7 +679,7 @@ fn chroma_run(ui: &AppWindow) {
             ui.set_chroma_busy(true);
             ui.set_chroma_has_result(false);
             ui.set_chroma_progress(0.0);
-            ui.set_chroma_progress_text("Préparation…".into());
+            ui.set_chroma_progress_text(t("Preparing…", "Préparation…").into());
         }
         return;
     }
@@ -695,23 +706,23 @@ fn on_segmented(ui: &AppWindow, res: Result<((Vec<f32>, usize, usize), f32), Str
                 }
                 st.chroma.prob = Some((prob, pw, ph));
                 if let Some(src) = &st.chroma.source {
-                    ui.set_chroma_info(format!("{} × {} px · traité en {:.2} s", src.width(), src.height(), secs).replace('.', ",").into());
+                    ui.set_chroma_info(if fr() { format!("{} × {} px · traité en {:.2} s", src.width(), src.height(), secs).replace('.', ",") } else { format!("{} × {} px · processed in {:.2} s", src.width(), src.height(), secs) }.into());
                 }
             });
             ui.set_chroma_has_result(true);
             ui.set_chroma_view(1);
             chroma_refresh(ui);
         }
-        Err(e) => show_toast(ui, format!("Erreur : {e}")),
+        Err(e) => show_toast(ui, tf!("Error: {e}", "Erreur : {e}")),
     }
 }
 
 fn chroma_save(ui: &AppWindow) {
     if let Some((out, name)) = with_state(|st| st.chroma.video_out.clone().map(|o| (o, format!("{}-detouree.mp4", st.chroma.name)))) {
         match platform::save_video(&out, &name) {
-            Ok(Some(p)) => show_toast(ui, format!("Vidéo enregistrée : {}", p.display())),
+            Ok(Some(p)) => show_toast(ui, tf!("Video saved: {}", "Vidéo enregistrée : {}", p.display())),
             Ok(None) => {}
-            Err(e) => show_toast(ui, format!("Échec de l'enregistrement : {e}")),
+            Err(e) => show_toast(ui, tf!("Save failed: {e}", "Échec de l'enregistrement : {e}")),
         }
         return;
     }
@@ -726,9 +737,9 @@ fn chroma_save(ui: &AppWindow) {
         None => return,
     };
     match platform::save_png(&img, &name) {
-        Ok(Some(p)) => show_toast(ui, format!("Image enregistrée : {}", p.display())),
+        Ok(Some(p)) => show_toast(ui, tf!("Image saved: {}", "Image enregistrée : {}", p.display())),
         Ok(None) => {}
-        Err(e) => show_toast(ui, format!("Échec de l'enregistrement : {e}")),
+        Err(e) => show_toast(ui, tf!("Save failed: {e}", "Échec de l'enregistrement : {e}")),
     }
 }
 
@@ -751,7 +762,8 @@ fn process_video(model: &Codelor, job: &VideoJob, ui: &Weak<AppWindow>) -> anyho
         n += 1;
         let elapsed = t0.elapsed().as_secs_f32();
         let remaining = elapsed / n as f32 * (total.saturating_sub(n)) as f32;
-        let text = format!("Image {n} / {total} · encore ~{} s", remaining.round() as u64);
+        let left = remaining.round() as u64;
+        let text = tf!("Frame {n} / {total} · ~{left} s left", "Image {n} / {total} · encore ~{left} s");
         let progress = n as f32 / total as f32;
         let preview = (n == 1 || n % 6 == 0).then(|| {
             let small = if rgb.width().max(rgb.height()) > 720 {
@@ -770,7 +782,7 @@ fn process_video(model: &Codelor, job: &VideoJob, ui: &Weak<AppWindow>) -> anyho
         });
     }
     if n == 0 {
-        anyhow::bail!("aucune image traitée");
+        anyhow::bail!(t("no frame processed", "aucune image traitée"));
     }
     writer.finish()?;
     Ok(n)
@@ -783,10 +795,15 @@ fn on_video_done(ui: &AppWindow, res: Result<(usize, PathBuf), String>, stopped:
             with_state(|st| st.chroma.video_out = Some(out));
             ui.set_chroma_has_result(true);
             ui.set_chroma_info(
-                format!("{n} images détourées{} · appuyez sur Enregistrer pour garder la vidéo", if stopped { " (arrêt demandé)" } else { "" }).into(),
+                if fr() {
+                    format!("{n} images détourées{} · appuyez sur Enregistrer pour garder la vidéo", if stopped { " (arrêt demandé)" } else { "" })
+                } else {
+                    format!("{n} frames processed{} · tap Save to keep the video", if stopped { " (stopped)" } else { "" })
+                }
+                .into(),
             );
         }
-        Err(e) => show_toast(ui, format!("Erreur vidéo : {e}")),
+        Err(e) => show_toast(ui, tf!("Video error: {e}", "Erreur vidéo : {e}")),
     }
 }
 
@@ -794,7 +811,7 @@ fn open_gallery(ui: &AppWindow) {
     ui.set_gallery(ModelRc::new(VecModel::<GalleryItem>::default()));
     ui.set_gallery_open(true);
     if !platform::request_media_permission() {
-        ui.set_gallery_message("Autorisez l'accès à vos photos et vidéos dans la fenêtre qui s'affiche.".into());
+        ui.set_gallery_message(t("Allow access to your photos and videos in the window that appears.", "Autorisez l'accès à vos photos et vidéos dans la fenêtre qui s'affiche.").into());
         // Recharge la galerie automatiquement dès que l'accès est accordé.
         let weak = ui.as_weak();
         let timer = Rc::new(slint::Timer::default());
@@ -805,7 +822,7 @@ fn open_gallery(ui: &AppWindow) {
             let Some(ui) = weak.upgrade() else { return t2.stop() };
             if !ui.get_gallery_open() || tries.get() > 170 {
                 if tries.get() > 170 {
-                    ui.set_gallery_message("Accès refusé. Autorisez « Photos et vidéos » pour Plimb Studio dans les paramètres Android, puis appuyez sur « Réessayer ».".into());
+                    ui.set_gallery_message(t("Access denied. Allow \"Photos and videos\" for Plimb Studio in the Android settings, then tap \"Retry\".", "Accès refusé. Autorisez « Photos et vidéos » pour Plimb Studio dans les paramètres Android, puis appuyez sur « Réessayer ».").into());
                 }
                 t2.stop();
                 return;
@@ -817,12 +834,12 @@ fn open_gallery(ui: &AppWindow) {
         });
         return;
     }
-    ui.set_gallery_message("Recherche des images…".into());
+    ui.set_gallery_message(t("Looking for images…", "Recherche des images…").into());
     let weak = ui.as_weak();
     std::thread::spawn(move || {
         let files = platform::list_images(&platform::gallery_roots());
         if files.is_empty() {
-            let _ = weak.upgrade_in_event_loop(|ui| ui.set_gallery_message("Aucune image ni vidéo trouvée dans DCIM, Pictures, Movies ou Download.".into()));
+            let _ = weak.upgrade_in_event_loop(|ui| ui.set_gallery_message(t("No image or video found in DCIM, Pictures, Movies or Download.", "Aucune image ni vidéo trouvée dans DCIM, Pictures, Movies ou Download.").into()));
             return;
         }
         let mut batch = Vec::new();
@@ -879,7 +896,7 @@ fn start_download(ui: &AppWindow, id: &str) {
         if st.downloads.get(m.id).is_some_and(|d| d.error.is_none()) {
             return true;
         }
-        st.downloads.insert(m.id, DlState { progress: 0.0, text: "Connexion…".into(), error: None, cancel: cancel.clone() });
+        st.downloads.insert(m.id, DlState { progress: 0.0, text: t("Connecting…", "Connexion…").into(), error: None, cancel: cancel.clone() });
         false
     });
     if already {
@@ -936,7 +953,7 @@ fn start_download(ui: &AppWindow, id: &str) {
             });
             refresh_models(&ui);
             if result.is_ok() {
-                show_toast(&ui, format!("{} est prêt", m.name));
+                show_toast(&ui, tf!("{} is ready", "{} est prêt", m.name));
                 let is_active = with_state(|st| st.active.map(|a| a.id) == Some(m.id));
                 if is_active && ui.get_page() >= 3 {
                     ensure_loaded(&ui);
@@ -971,7 +988,7 @@ fn delete_model(ui: &AppWindow, id: &str) {
     let _ = std::fs::remove_dir_all(model_dir(m));
     refresh_models(ui);
     sync_model_status(ui);
-    show_toast(ui, format!("{} a été supprimé", m.name));
+    show_toast(ui, tf!("{} was deleted", "{} a été supprimé", m.name));
 }
 
 // ------------------------------------------------------------------ mises à jour
@@ -998,11 +1015,11 @@ fn check_update(ui: &AppWindow, silent: bool) {
             }
             Ok(None) => {
                 ui.set_update_state(4);
-                ui.set_update_message(format!("Vous utilisez la dernière version ({}).", update::CURRENT).into());
+                ui.set_update_message(tf!("You are using the latest version ({}).", "Vous utilisez la dernière version ({}).", update::CURRENT).into());
             }
             Err(e) => {
                 ui.set_update_state(if silent { 0 } else { 3 });
-                ui.set_update_message(format!("Impossible de vérifier les mises à jour : {e}").into());
+                ui.set_update_message(tf!("Could not check for updates: {e}", "Impossible de vérifier les mises à jour : {e}").into());
             }
         });
     });
@@ -1011,18 +1028,27 @@ fn check_update(ui: &AppWindow, silent: bool) {
 fn install_update(ui: &AppWindow) {
     let Some(rel) = with_state(|st| st.release.clone()) else { return };
     let Some(url) = rel.asset_url.clone() else {
-        platform::open_url(&rel.page_url);
+        let _ = platform::open_url(&rel.page_url);
         return;
     };
     if platform::is_mobile() {
         // Le navigateur télécharge l'APK ; Android propose ensuite l'installation.
-        platform::open_url(&url);
-        show_toast(ui, "Ouvrez le fichier téléchargé pour installer la mise à jour.");
+        if platform::open_url(&url) {
+            show_toast(ui, t("Open the downloaded file to install the update.", "Ouvrez le fichier téléchargé pour installer la mise à jour."));
+        } else {
+            show_toast(
+                ui,
+                t(
+                    "Could not open the browser. Download the APK from github.com/Plimb-ai/plimb-app/releases",
+                    "Impossible d'ouvrir le navigateur. Téléchargez l'APK sur github.com/Plimb-ai/plimb-app/releases",
+                ),
+            );
+        }
         return;
     }
     ui.set_update_state(2);
     ui.set_update_progress(0.0);
-    ui.set_update_message("Téléchargement…".into());
+    ui.set_update_message(t("Downloading…", "Téléchargement…").into());
     let weak = ui.as_weak();
     std::thread::spawn(move || {
         let dest = platform::data_dir().join("update").join(platform::release_asset_name().unwrap_or("update.bin"));
@@ -1032,20 +1058,20 @@ fn install_update(ui: &AppWindow) {
         let size = (rel.asset_size > 0).then_some(rel.asset_size);
         let r = net::download(&url, &dest, size, &cancel, |got, total| {
             let p = if total > 0 { got as f32 / total as f32 } else { 0.0 };
-            let msg = format!("Téléchargement… {} / {}", human_size(got), human_size(total));
+            let msg = tf!("Downloading… {} / {}", "Téléchargement… {} / {}", human_size(got), human_size(total));
             let _ = w.upgrade_in_event_loop(move |ui| {
                 ui.set_update_progress(p);
                 ui.set_update_message(msg.into());
             });
         });
         let r = r.and_then(|_| {
-            let _ = weak.upgrade_in_event_loop(|ui| ui.set_update_message("Installation et redémarrage…".into()));
+            let _ = weak.upgrade_in_event_loop(|ui| ui.set_update_message(t("Installing and restarting…", "Installation et redémarrage…").into()));
             platform::install_update(&dest)
         });
         if let Err(e) = r {
             let _ = weak.upgrade_in_event_loop(move |ui| {
                 ui.set_update_state(3);
-                ui.set_update_message(format!("La mise à jour a échoué : {e}").into());
+                ui.set_update_message(tf!("The update failed: {e}", "La mise à jour a échoué : {e}").into());
             });
         }
     });
@@ -1078,6 +1104,8 @@ pub fn run() -> Result<(), slint::PlatformError> {
         })
     });
 
+    crate::i18n::apply(settings.language);
+    ui.set_language(settings.language);
     ui.set_app_version(update::CURRENT.into());
     ui.set_mobile(platform::is_mobile());
     ui.set_native_picker(platform::has_native_picker());
@@ -1137,7 +1165,9 @@ pub fn run() -> Result<(), slint::PlatformError> {
             refresh_models(&ui);
         }
     });
-    ui.on_open_url(|u| platform::open_url(&u));
+    ui.on_open_url(|u| {
+        let _ = platform::open_url(&u);
+    });
     ui.on_open_data_folder(|| platform::open_folder(&platform::models_dir()));
 
     // --- modèles
@@ -1235,6 +1265,21 @@ pub fn run() -> Result<(), slint::PlatformError> {
             st.settings.save();
         });
     });
+    let w = ui.as_weak();
+    ui.on_set_language(move |l| {
+        let ui = w.unwrap();
+        crate::i18n::apply(l);
+        with_state(|st| {
+            st.settings.language = l;
+            st.settings.save();
+        });
+        let cats: Vec<CategoryData> = Task::ALL.iter().map(|t| category_data(*t)).collect();
+        ui.set_categories(ModelRc::new(VecModel::from(cats)));
+        let task = with_state(|st| st.task);
+        ui.set_current_category(category_data(task));
+        refresh_models(&ui);
+        sync_model_status(&ui);
+    });
     ui.on_set_auto_update(|v| {
         with_state(|st| {
             st.settings.auto_update_check = v;
@@ -1295,6 +1340,7 @@ fn run_demo(ui: &AppWindow, script: String) {
                 ui.set_params_open(true);
             }
             "theme" => ui.invoke_set_theme(arg.parse().unwrap_or(0)),
+            "lang" => ui.invoke_set_language(arg.parse().unwrap_or(0)),
             "close" => {
                 ui.invoke_go_back();
             }

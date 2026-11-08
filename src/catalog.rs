@@ -1,5 +1,7 @@
 //! Catalogue des modèles publiés par Plimb sur Hugging Face (https://huggingface.co/plimb).
 
+use crate::i18n::t;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Task {
     Chat,
@@ -24,17 +26,20 @@ impl Task {
 
     pub fn title(self) -> &'static str {
         match self {
-            Task::Chat => "Discussion",
-            Task::Story => "Atelier d'histoires",
-            Task::ChromaKey => "Détourage couleur",
+            Task::Chat => t("Chat", "Discussion"),
+            Task::Story => t("Story workshop", "Atelier d'histoires"),
+            Task::ChromaKey => t("Color keying", "Détourage couleur"),
         }
     }
 
     pub fn subtitle(self) -> &'static str {
         match self {
-            Task::Chat => "Converser avec un modèle de langage sur l'appareil",
-            Task::Story => "Écrire de courtes histoires à partir d'un début de phrase",
-            Task::ChromaKey => "Retirer un fond vert (ou d'une autre couleur) d'une image",
+            Task::Chat => t("Talk with a language model on your device", "Converser avec un modèle de langage sur l'appareil"),
+            Task::Story => t("Write short stories from an opening sentence", "Écrire de courtes histoires à partir d'un début de phrase"),
+            Task::ChromaKey => t(
+                "Remove a green (or other color) background from an image or a video",
+                "Retirer un fond vert (ou d'une autre couleur) d'une image ou d'une vidéo",
+            ),
         }
     }
 
@@ -68,7 +73,9 @@ pub struct ModelInfo {
     pub name: &'static str,
     pub task: Task,
     pub description: &'static str,
+    pub description_en: &'static str,
     pub details: &'static [&'static str],
+    pub details_en: &'static [&'static str],
     pub files: &'static [ModelFile],
     pub engine: Engine,
     pub recommended: bool,
@@ -97,7 +104,10 @@ pub static MODELS: &[ModelInfo] = &[
         task: Task::Chat,
         description: "Modèle conversationnel d'environ 300 M de paramètres, entraîné de zéro sur des \
                       données de dialogue en anglais. Prototype : réponses simples, contexte de 256 tokens.",
+        description_en: "Conversational model with about 300M parameters, trained from scratch on English dialogue \
+                         data. Prototype: simple answers, 256-token context.",
         details: &["~300 M paramètres", "Anglais", "Contexte 256", "Prototype"],
+        details_en: &["~300M parameters", "English", "256 context", "Prototype"],
         files: &[
             ModelFile { name: "vocab.json", size: 113_900 },
             ModelFile { name: "gladios-0.3b-eng-prototype.pt", size: 1_248_553_879 },
@@ -113,7 +123,10 @@ pub static MODELS: &[ModelInfo] = &[
         task: Task::Story,
         description: "Transformer de type GPT-2 (~124 M de paramètres) entraîné de zéro sur TinyStories. \
                       Écrit de courtes histoires pour enfants, en anglais.",
+        description_en: "GPT-2 style transformer (~124M parameters) trained from scratch on TinyStories. \
+                         Writes short children's stories in English.",
         details: &["~124 M paramètres", "Anglais", "Contexte 512", "TinyStories"],
+        details_en: &["~124M parameters", "English", "512 context", "TinyStories"],
         files: &[
             ModelFile { name: "config.json", size: 809 },
             ModelFile { name: "tokenizer.json", size: 3_557_680 },
@@ -130,7 +143,10 @@ pub static MODELS: &[ModelInfo] = &[
         task: Task::ChromaKey,
         description: "Modèle de segmentation ultra-léger (1,6 M de paramètres) spécialisé dans le chroma key : \
                       il détecte une couleur cible (vert par défaut) et produit un masque alpha propre.",
+        description_en: "Ultra-light segmentation model (1.6M parameters) specialized in chroma keying: \
+                         it detects a target color (green by default) and produces a clean alpha mask.",
         details: &["1,6 M paramètres", "6,3 Mo", "Optimisé CPU", "Image → masque"],
+        details_en: &["1.6M parameters", "6.3 MB", "CPU-optimized", "Image → mask"],
         files: &[
             ModelFile { name: "config.json", size: 519 },
             ModelFile { name: "model.safetensors", size: 6_575_768 },
@@ -151,11 +167,30 @@ pub fn for_task(task: Task) -> impl Iterator<Item = &'static ModelInfo> {
 
 pub fn human_size(bytes: u64) -> String {
     let b = bytes as f64;
-    if b >= 1e9 {
-        format!("{:.2} Go", b / 1e9).replace('.', ",")
+    let fr = crate::i18n::fr();
+    let s = if b >= 1e9 {
+        format!("{:.2} {}", b / 1e9, if fr { "Go" } else { "GB" })
     } else if b >= 1e6 {
-        format!("{:.1} Mo", b / 1e6).replace('.', ",")
+        format!("{:.1} {}", b / 1e6, if fr { "Mo" } else { "MB" })
     } else {
-        format!("{:.0} Ko", b / 1e3)
+        format!("{:.0} {}", b / 1e3, if fr { "Ko" } else { "KB" })
+    };
+    if fr {
+        s.replace('.', ",")
+    } else {
+        s
+    }
+}
+
+impl ModelInfo {
+    pub fn localized_description(&self) -> &'static str {
+        t(self.description_en, self.description)
+    }
+    pub fn localized_details(&self) -> &'static [&'static str] {
+        if crate::i18n::fr() {
+            self.details
+        } else {
+            self.details_en
+        }
     }
 }

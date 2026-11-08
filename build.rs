@@ -1,5 +1,7 @@
 fn main() {
-    let config = slint_build::CompilerConfiguration::new().with_style("material".into());
+    let config = slint_build::CompilerConfiguration::new()
+        .with_style("material".into())
+        .with_bundled_translations("lang");
     slint_build::compile_with_config("ui/app.slint", config).expect("compilation de l'interface Slint");
 
     // Icône de l'exécutable Windows
