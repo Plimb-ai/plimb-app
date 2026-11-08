@@ -14,14 +14,15 @@ sur le processeur de l'appareil : aucun texte ni aucune image ne quitte la machi
 |---|---|---|
 | **Discussion** | [`gladios-0.3b-eng-prototype`](https://huggingface.co/plimb/gladios-0.3b-eng-prototype) | Chat en anglais (≈300 M paramètres, checkpoint PyTorch lu directement en Rust) |
 | **Atelier d'histoires** | [`gladios-tiny.story-0.1B`](https://huggingface.co/plimb/gladios-tiny.story-0.1B) | Écrit de courtes histoires à partir d'un début de phrase (GPT-2, safetensors) |
-| **Détourage couleur** | [`codelor-color-1.2`](https://huggingface.co/plimb/codelor-color-1.2) | Retire un fond vert (ou d'une autre couleur) et exporte un PNG transparent |
+| **Détourage couleur** | [`codelor-color-1.2`](https://huggingface.co/plimb/codelor-color-1.2) | Retire un fond vert (ou d'une autre couleur) d'une image (PNG transparent) ou d'une vidéo (MP4) |
 
 Fonctions principales :
 
 - accueil par catégories, page de chaque catégorie avec ses modèles ;
 - gestionnaire de modèles : téléchargement avec progression et reprise, suppression, espace utilisé ;
 - discussion avec réponses en streaming, historique, paramètres (longueur, Top-K, Top-P, température, pénalité de répétition) ;
-- détourage : choix de la couleur, seuil, bords adoucis, fond transparent/blanc/noir, vue du masque, export PNG ;
+- détourage d'images : choix de la couleur, seuil, bords adoucis, fond transparent/blanc/noir, vue du masque, export PNG ;
+- détourage de vidéos MP4 (H.264) : traitement image par image avec progression, fond noir ou blanc, export MP4 (le son n'est pas conservé, le HEVC/H.265 n'est pas pris en charge) ;
 - thème auto/clair/sombre, interface adaptée au bureau comme au téléphone ;
 - **mises à jour intégrées** : l'app vérifie la dernière release GitHub et se met à jour
   (remplacement de l'exécutable sur Windows/Linux, téléchargement de l'APK sur Android).
@@ -89,6 +90,7 @@ src/ai/        moteur d'inférence (tokenizer BPE, GPT, Codelor) en Rust pur
 src/app.rs     logique de l'application (navigation, téléchargements, génération, détourage)
 src/catalog.rs catalogue des modèles Plimb et catégories
 src/update.rs  vérification des releases GitHub
+src/video.rs   lecture/écriture MP4 H.264 (mp4 + OpenH264)
 src/platform/  spécificités bureau / Android (fichiers, liens, permissions, auto-update)
 ui/            interface Slint
 ```

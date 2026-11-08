@@ -42,6 +42,7 @@ export struct ChatMsg {
 export struct GalleryItem {
     path: string,
     thumb: image,
+    video: bool,
 }
 
 export struct GenParams {
@@ -583,6 +584,10 @@ export component AppWindow inherits Window {
     in-out property <float> chroma-threshold: 0.5;
     in-out property <bool> chroma-soft: true;
     in-out property <int> chroma-bg: 0;
+    in property <bool> chroma-is-video;
+    in property <float> chroma-progress;
+    in property <string> chroma-progress-text;
+    in-out property <int> chroma-video-bg: 0; // 0 noir, 1 blanc
 
     // Galerie intégrée (Android)
     in-out property <bool> gallery-open;
@@ -1372,7 +1377,7 @@ export component AppWindow inherits Window {
                                     }
                                 }
                                 Text {
-                                    text: "Choisissez une image avec un fond vert";
+                                    text: "Choisissez une image ou une vidéo avec un fond vert";
                                     color: Theme.text-muted;
                                     horizontal-alignment: center;
                                 }
@@ -1385,13 +1390,35 @@ export component AppWindow inherits Window {
                                 source: root.chroma-preview;
                                 image-fit: contain;
                             }
-                            if root.chroma-busy: Rectangle {
+                            if root.chroma-busy && !root.chroma-is-video: Rectangle {
                                 background: Theme.scrim;
                                 border-radius: Theme.radius-l;
                                 Text {
                                     text: "Détourage en cours…";
                                     color: white;
                                     font-weight: 600;
+                                }
+                            }
+                            if root.chroma-busy && root.chroma-is-video: Rectangle {
+                                x: 12px;
+                                y: parent.height - self.height - 12px;
+                                width: parent.width - 24px;
+                                height: vprog.preferred-height;
+                                border-radius: Theme.radius-m;
+                                background: #000000b0;
+                                vprog := VerticalLayout {
+                                    padding: 12px;
+                                    spacing: 8px;
+                                    Text {
+                                        text: "Détourage de la vidéo · " + root.chroma-progress-text;
+                                        color: white;
+                                        font-size: Theme.fs-small;
+                                        overflow: elide;
+                                    }
+                                    ProgressBar {
+                                        progress: root.chroma-progress;
+                                        tint: Theme.c-chroma;
+                                    }
                                 }
                             }
                             TouchArea {
@@ -1403,7 +1430,7 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.chroma-has-result: HorizontalLayout {
+                        if root.chroma-has-result && !root.chroma-is-video: HorizontalLayout {
                             alignment: center;
                             Segmented {
                                 width: 280px;
@@ -1419,7 +1446,7 @@ export component AppWindow inherits Window {
                             spacing: 10px;
                             alignment: center;
                             PillButton {
-                                text: root.chroma-has-image ? "Changer" : "Choisir une image";
+                                text: root.chroma-has-image ? "Changer" : "Image ou vidéo";
                                 icon: "image";
                                 variant: 1;
                                 enabled: !root.chroma-busy;
@@ -1427,13 +1454,21 @@ export component AppWindow inherits Window {
                                     root.chroma-pick();
                                 }
                             }
-                            PillButton {
-                                text: "Détourer";
+                            if !(root.chroma-busy && root.chroma-is-video): PillButton {
+                                text: root.chroma-is-video ? "Détourer la vidéo" : "Détourer";
                                 icon: "drop";
                                 tint: Theme.c-chroma;
                                 enabled: root.chroma-has-image && !root.chroma-busy;
                                 clicked => {
                                     root.chroma-run();
+                                }
+                            }
+                            if root.chroma-busy && root.chroma-is-video: PillButton {
+                                text: "Arrêter";
+                                icon: "stop";
+                                tint: Theme.danger;
+                                clicked => {
+                                    root.stop-generation();
                                 }
                             }
                             if root.chroma-has-result: IconButton {
@@ -1544,12 +1579,22 @@ export component AppWindow inherits Window {
                                     text: "Arrière-plan";
                                     color: Theme.text;
                                 }
-                                Segmented {
+                                if !root.chroma-is-video: Segmented {
                                     options: ["Transparent", "Blanc", "Noir"];
                                     selected <=> root.chroma-bg;
                                     changed => {
                                         root.chroma-refresh();
                                     }
+                                }
+                                if root.chroma-is-video: Segmented {
+                                    options: ["Noir", "Blanc"];
+                                    selected <=> root.chroma-video-bg;
+                                }
+                                if root.chroma-is-video: Text {
+                                    text: "Les vidéos MP4 ne gèrent pas la transparence : le fond retiré est remplacé par la couleur choisie. Seules les vidéos H.264 sont acceptées.";
+                                    font-size: 12px;
+                                    color: Theme.text-faint;
+                                    wrap: word-wrap;
                                 }
                             }
                         }
@@ -2077,7 +2122,7 @@ export component AppWindow inherits Window {
                 TouchArea { }
                 VerticalLayout {
                     TopBar {
-                        title: "Choisir une image";
+                        title: "Choisir une image ou une vidéo";
                         left-icon: "close";
                         left-clicked => {
                             root.gallery-open = false;
@@ -2128,6 +2173,23 @@ export component AppWindow inherits Window {
                                     height: 100%;
                                     source: g.thumb;
                                     image-fit: cover;
+                                }
+                                if g.video: Rectangle {
+                                    x: 6px;
+                                    y: parent.height - self.height - 6px;
+                                    width: 30px;
+                                    height: 30px;
+                                    border-radius: 15px;
+                                    background: #000000a0;
+                                    Path {
+                                        x: 10px;
+                                        width: 12px;
+                                        height: 14px;
+                                        viewbox-width: 12;
+                                        viewbox-height: 14;
+                                        commands: "M0 0 L12 7 L0 14 Z";
+                                        fill: white;
+                                    }
                                 }
                             }
                             TouchArea {

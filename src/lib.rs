@@ -5,6 +5,7 @@ mod app;
 pub mod catalog;
 mod net;
 pub mod platform;
+pub mod video;
 mod settings;
 mod update;
 
@@ -24,6 +25,7 @@ fn android_main(android_app: slint::android::AndroidApp) {
         .internal_data_path()
         .unwrap_or_else(|| std::path::PathBuf::from("/data/data/ai.plimb.studio/files"));
     platform::set_data_dir(dir);
+    platform::set_android_app(android_app.clone());
     if let Err(e) = slint::android::init(android_app) {
         log::error!("initialisation Slint : {e}");
         return;

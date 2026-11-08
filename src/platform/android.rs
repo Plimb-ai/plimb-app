@@ -1,12 +1,22 @@
 use jni::objects::{JObject, JValue};
 use jni::JavaVM;
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+static APP: OnceLock<slint::android::AndroidApp> = OnceLock::new();
+
+/// À appeler depuis `android_main` : donne accès à l'Activity pour les appels Java.
+/// (Le contexte global de `ndk_context` est l'Application, qui ne peut ni demander
+/// de permissions ni lancer d'activité sans FLAG_ACTIVITY_NEW_TASK.)
+pub fn set_android_app(app: slint::android::AndroidApp) {
+    let _ = APP.set(app);
+}
 
 fn with_env<R>(f: impl FnOnce(&mut jni::JNIEnv, &JObject) -> jni::errors::Result<R>) -> Option<R> {
-    let ctx = ndk_context::android_context();
-    let vm = unsafe { JavaVM::from_raw(ctx.vm().cast()) }.ok()?;
+    let app = APP.get()?;
+    let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr().cast()) }.ok()?;
     let mut env = vm.attach_current_thread().ok()?;
-    let activity = unsafe { JObject::from_raw(ctx.context().cast()) };
+    let activity = unsafe { JObject::from_raw(app.activity_as_ptr().cast()) };
     let r = f(&mut env, &activity);
     if env.exception_check().unwrap_or(false) {
         let _ = env.exception_describe();
@@ -38,6 +48,8 @@ pub fn open_url(url: &str) {
             "(Ljava/lang/String;Landroid/net/Uri;)V",
             &[JValue::Object(&action), JValue::Object(&uri)],
         )?;
+        // FLAG_ACTIVITY_NEW_TASK
+        env.call_method(&intent, "addFlags", "(I)Landroid/content/Intent;", &[JValue::Int(0x1000_0000)])?;
         env.call_method(activity, "startActivity", "(Landroid/content/Intent;)V", &[JValue::Object(&intent)])?;
         Ok(())
     });
@@ -45,7 +57,7 @@ pub fn open_url(url: &str) {
 
 pub fn open_folder(_path: &std::path::Path) {}
 
-pub fn pick_image() -> Option<PathBuf> {
+pub fn pick_media() -> Option<PathBuf> {
     None
 }
 
@@ -60,15 +72,20 @@ fn external_root() -> PathBuf {
 
 pub fn gallery_roots() -> Vec<PathBuf> {
     let r = external_root();
-    ["DCIM", "Pictures", "Download", "Screenshots"].iter().map(|d| r.join(d)).collect()
+    ["DCIM", "Pictures", "Movies", "Download", "Screenshots"].iter().map(|d| r.join(d)).collect()
 }
 
-fn media_permission() -> &'static str {
+fn media_permissions() -> &'static [&'static str] {
     if sdk_int() >= 33 {
-        "android.permission.READ_MEDIA_IMAGES"
+        &["android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO"]
     } else {
-        "android.permission.READ_EXTERNAL_STORAGE"
+        &["android.permission.READ_EXTERNAL_STORAGE"]
     }
+}
+
+/// Vrai si l'application peut lire les photos et vidéos.
+pub fn has_media_permission() -> bool {
+    media_permissions().iter().all(|p| has_permission(p))
 }
 
 fn has_permission(p: &str) -> bool {
@@ -80,20 +97,47 @@ fn has_permission(p: &str) -> bool {
     .unwrap_or(false)
 }
 
-/// Demande l'accès aux photos. Renvoie `true` si l'accès est déjà accordé.
+/// Demande l'accès aux photos et vidéos. Renvoie `true` si l'accès est déjà accordé.
 pub fn request_media_permission() -> bool {
-    let p = media_permission();
-    if has_permission(p) {
+    if has_media_permission() {
         return true;
     }
-    with_env(|env, activity| {
-        let arr = env.new_object_array(1, "java/lang/String", JObject::null())?;
-        let jp = env.new_string(p)?;
-        env.set_object_array_element(&arr, 0, jp)?;
+    let perms = media_permissions();
+    let r = with_env(|env, activity| {
+        let arr = env.new_object_array(perms.len() as i32, "java/lang/String", JObject::null())?;
+        for (i, p) in perms.iter().enumerate() {
+            let jp = env.new_string(p)?;
+            env.set_object_array_element(&arr, i as i32, jp)?;
+        }
         env.call_method(activity, "requestPermissions", "([Ljava/lang/String;I)V", &[JValue::Object(&arr), JValue::Int(42)])?;
         Ok(())
     });
+    if r.is_none() {
+        log::warn!("requestPermissions a échoué");
+    }
     false
+}
+
+fn export_dir(sub: &str) -> anyhow::Result<PathBuf> {
+    let dir = external_root().join(sub).join("Plimb");
+    if std::fs::create_dir_all(&dir).is_ok() {
+        return Ok(dir);
+    }
+    let dir = super::data_dir().join("exports");
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+/// Copie une vidéo produite dans Movies/Plimb.
+pub fn save_video(src: &std::path::Path, suggested: &str) -> anyhow::Result<Option<PathBuf>> {
+    let mut dest = export_dir("Movies")?.join(suggested);
+    if std::fs::copy(src, &dest).is_err() {
+        let dir = super::data_dir().join("exports");
+        std::fs::create_dir_all(&dir)?;
+        dest = dir.join(suggested);
+        std::fs::copy(src, &dest)?;
+    }
+    Ok(Some(dest))
 }
 
 pub fn save_png(img: &image::RgbaImage, suggested: &str) -> anyhow::Result<Option<PathBuf>> {

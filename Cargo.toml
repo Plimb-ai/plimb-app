@@ -30,6 +30,9 @@ semver = "1"
 rand = "0.9"
 anyhow = "1"
 log = "0.4"
+openh264 = "0.9"
+mp4 = "0.14"
+bytes = "1"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 slint = { version = "1.18", default-features = false, features = ["backend-winit", "renderer-femtovg", "renderer-software"] }
@@ -84,6 +87,9 @@ name = "android.permission.INTERNET"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.READ_MEDIA_IMAGES"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_MEDIA_VIDEO"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.READ_EXTERNAL_STORAGE"

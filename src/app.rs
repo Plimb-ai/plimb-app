@@ -35,6 +35,28 @@ struct ChromaState {
     name: String,
     prob: Option<(Vec<f32>, usize, usize)>,
     preview_prob: Option<Vec<f32>>,
+    /// Vidéo source (si le média choisi est une vidéo)
+    video: Option<PathBuf>,
+    /// Vidéo détourée prête à être enregistrée
+    video_out: Option<PathBuf>,
+}
+
+impl ChromaState {
+    fn empty() -> Self {
+        Self { source: None, preview: None, name: String::new(), prob: None, preview_prob: None, video: None, video_out: None }
+    }
+}
+
+struct VideoJob {
+    input: PathBuf,
+    output: PathBuf,
+    color: [f32; 3],
+    threshold: f32,
+    soft: bool,
+    bg: i32,
+    despill: bool,
+    max_side: u32,
+    stop: Arc<AtomicBool>,
 }
 
 struct State {
@@ -71,6 +93,7 @@ enum Job {
     Chat { history: Vec<Turn>, message: String, max: usize, params: SamplingParams, stop: Arc<AtomicBool> },
     Story { prompt: String, max: usize, params: SamplingParams, stop: Arc<AtomicBool> },
     Segment { image: Arc<image::RgbImage>, color: [f32; 3], max_side: u32 },
+    SegmentVideo(VideoJob),
 }
 
 enum Loaded {
@@ -171,6 +194,16 @@ fn spawn_worker(ui: Weak<AppWindow>) -> Sender<Job> {
                             _ => Err("modèle non chargé".into()),
                         };
                         let _ = ui.upgrade_in_event_loop(move |ui| on_segmented(&ui, r));
+                    }
+                    Job::SegmentVideo(job) => {
+                        let r = match current.as_ref() {
+                            Some((_, Loaded::Codelor(m))) => process_video(m, &job, &ui),
+                            _ => Err(anyhow::anyhow!("modèle non chargé")),
+                        };
+                        let stopped = job.stop.load(Ordering::Relaxed);
+                        let out = job.output.clone();
+                        let r = r.map(|n| (n, out)).map_err(|e| format!("{e:#}"));
+                        let _ = ui.upgrade_in_event_loop(move |ui| on_video_done(&ui, r, stopped));
                     }
                 }
             }
@@ -547,7 +580,42 @@ fn chroma_refresh(ui: &AppWindow) {
     });
 }
 
+fn chroma_set_video(ui: &AppWindow, path: PathBuf) {
+    match crate::video::first_frame(&path) {
+        Ok((frame, info)) => {
+            let preview = if frame.width().max(frame.height()) > 1280 {
+                image::DynamicImage::ImageRgb8(frame.clone()).resize(1280, 1280, image::imageops::FilterType::Triangle).to_rgb8()
+            } else {
+                frame.clone()
+            };
+            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "video".into());
+            with_state(|st| {
+                st.chroma = ChromaState { source: Some(frame), preview: Some(preview), name, video: Some(path), ..ChromaState::empty() };
+            });
+            ui.set_chroma_is_video(true);
+            ui.set_chroma_view(0);
+            ui.set_chroma_has_result(false);
+            ui.set_chroma_progress(0.0);
+            ui.set_chroma_info(
+                format!(
+                    "Vidéo {} × {} · {:.0} images/s · {:.1} s · le son n'est pas conservé",
+                    info.width, info.height, info.fps, info.seconds
+                )
+                .replace('.', ",")
+                .into(),
+            );
+            chroma_refresh(ui);
+        }
+        Err(e) => show_toast(ui, format!("Vidéo illisible : {e:#}")),
+    }
+}
+
 fn chroma_set_image(ui: &AppWindow, path: PathBuf) {
+    if platform::is_video(&path) {
+        chroma_set_video(ui, path);
+        return;
+    }
+    ui.set_chroma_is_video(false);
     let img = image::ImageReader::open(&path).and_then(|r| r.with_guessed_format()).map_err(|e| e.to_string()).and_then(|r| r.decode().map_err(|e| e.to_string()));
     match img {
         Ok(img) => {
@@ -560,7 +628,7 @@ fn chroma_set_image(ui: &AppWindow, path: PathBuf) {
             let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "image".into());
             let (w, h) = rgb.dimensions();
             with_state(|st| {
-                st.chroma = ChromaState { source: Some(rgb), preview: Some(preview), name, prob: None, preview_prob: None };
+                st.chroma = ChromaState { source: Some(rgb), preview: Some(preview), name, ..ChromaState::empty() };
             });
             ui.set_chroma_view(0);
             ui.set_chroma_has_result(false);
@@ -573,6 +641,37 @@ fn chroma_set_image(ui: &AppWindow, path: PathBuf) {
 
 fn chroma_run(ui: &AppWindow) {
     let color = [ui.get_chroma_r(), ui.get_chroma_g(), ui.get_chroma_b()];
+    if ui.get_chroma_is_video() {
+        let ok = with_state(|st| {
+            let Some(input) = st.chroma.video.clone() else { return false };
+            if st.active.map(|m| st.loaded != Some(m.id)).unwrap_or(true) {
+                return false;
+            }
+            let dir = platform::data_dir().join("tmp");
+            let _ = std::fs::create_dir_all(&dir);
+            st.stop = Arc::new(AtomicBool::new(false));
+            st.chroma.video_out = None;
+            let _ = st.worker.send(Job::SegmentVideo(VideoJob {
+                input,
+                output: dir.join("video-detouree.mp4"),
+                color,
+                threshold: ui.get_chroma_threshold(),
+                soft: ui.get_chroma_soft(),
+                bg: if ui.get_chroma_video_bg() == 1 { 1 } else { 2 },
+                despill: ui.get_chroma_preset() == 0,
+                max_side: st.settings.chroma_max_side.min(384),
+                stop: st.stop.clone(),
+            }));
+            true
+        });
+        if ok {
+            ui.set_chroma_busy(true);
+            ui.set_chroma_has_result(false);
+            ui.set_chroma_progress(0.0);
+            ui.set_chroma_progress_text("Préparation…".into());
+        }
+        return;
+    }
     let ok = with_state(|st| {
         let Some(src) = &st.chroma.source else { return false };
         if st.active.map(|m| st.loaded != Some(m.id)).unwrap_or(true) {
@@ -608,6 +707,14 @@ fn on_segmented(ui: &AppWindow, res: Result<((Vec<f32>, usize, usize), f32), Str
 }
 
 fn chroma_save(ui: &AppWindow) {
+    if let Some((out, name)) = with_state(|st| st.chroma.video_out.clone().map(|o| (o, format!("{}-detouree.mp4", st.chroma.name)))) {
+        match platform::save_video(&out, &name) {
+            Ok(Some(p)) => show_toast(ui, format!("Vidéo enregistrée : {}", p.display())),
+            Ok(None) => {}
+            Err(e) => show_toast(ui, format!("Échec de l'enregistrement : {e}")),
+        }
+        return;
+    }
     let (img, name) = match with_state(|st| {
         let c = &st.chroma;
         let (src, (prob, pw, ph)) = (c.source.as_ref()?, c.prob.as_ref()?);
@@ -625,11 +732,89 @@ fn chroma_save(ui: &AppWindow) {
     }
 }
 
+/// Détoure toutes les images d'une vidéo (thread d'inférence). Renvoie le nombre d'images traitées.
+fn process_video(model: &Codelor, job: &VideoJob, ui: &Weak<AppWindow>) -> anyhow::Result<usize> {
+    let mut reader = crate::video::VideoReader::open(&job.input)?;
+    let total = reader.info.frames.max(1) as usize;
+    let mut writer = crate::video::VideoWriter::create(&job.output, reader.info.width, reader.info.height, reader.info.fps)?;
+    let t0 = Instant::now();
+    let mut n = 0usize;
+    while let Some(frame) = reader.next_frame()? {
+        if job.stop.load(Ordering::Relaxed) {
+            break;
+        }
+        let (p, pw, ph) = model.segment(&frame, job.color, job.max_side)?;
+        let prob = resize_plane(&p, pw, ph, frame.width() as usize, frame.height() as usize);
+        let rgba = compose(&frame, &prob, job.threshold, job.soft, job.bg, 1, job.despill, false);
+        let rgb = image::DynamicImage::ImageRgba8(rgba).to_rgb8();
+        writer.write(&rgb)?;
+        n += 1;
+        let elapsed = t0.elapsed().as_secs_f32();
+        let remaining = elapsed / n as f32 * (total.saturating_sub(n)) as f32;
+        let text = format!("Image {n} / {total} · encore ~{} s", remaining.round() as u64);
+        let progress = n as f32 / total as f32;
+        let preview = (n == 1 || n % 6 == 0).then(|| {
+            let small = if rgb.width().max(rgb.height()) > 720 {
+                image::DynamicImage::ImageRgb8(rgb.clone()).resize(720, 720, image::imageops::FilterType::Triangle).to_rgb8()
+            } else {
+                rgb.clone()
+            };
+            SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(small.as_raw(), small.width(), small.height())
+        });
+        let _ = ui.upgrade_in_event_loop(move |ui| {
+            ui.set_chroma_progress(progress);
+            ui.set_chroma_progress_text(text.into());
+            if let Some(buf) = preview {
+                ui.set_chroma_preview(slint::Image::from_rgb8(buf));
+            }
+        });
+    }
+    if n == 0 {
+        anyhow::bail!("aucune image traitée");
+    }
+    writer.finish()?;
+    Ok(n)
+}
+
+fn on_video_done(ui: &AppWindow, res: Result<(usize, PathBuf), String>, stopped: bool) {
+    ui.set_chroma_busy(false);
+    match res {
+        Ok((n, out)) => {
+            with_state(|st| st.chroma.video_out = Some(out));
+            ui.set_chroma_has_result(true);
+            ui.set_chroma_info(
+                format!("{n} images détourées{} · appuyez sur Enregistrer pour garder la vidéo", if stopped { " (arrêt demandé)" } else { "" }).into(),
+            );
+        }
+        Err(e) => show_toast(ui, format!("Erreur vidéo : {e}")),
+    }
+}
+
 fn open_gallery(ui: &AppWindow) {
     ui.set_gallery(ModelRc::new(VecModel::<GalleryItem>::default()));
     ui.set_gallery_open(true);
     if !platform::request_media_permission() {
-        ui.set_gallery_message("Autorisez l'accès à vos photos dans la fenêtre qui s'affiche, puis appuyez sur « Réessayer ».".into());
+        ui.set_gallery_message("Autorisez l'accès à vos photos et vidéos dans la fenêtre qui s'affiche.".into());
+        // Recharge la galerie automatiquement dès que l'accès est accordé.
+        let weak = ui.as_weak();
+        let timer = Rc::new(slint::Timer::default());
+        let t2 = timer.clone();
+        let tries = std::cell::Cell::new(0u32);
+        timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(700), move || {
+            tries.set(tries.get() + 1);
+            let Some(ui) = weak.upgrade() else { return t2.stop() };
+            if !ui.get_gallery_open() || tries.get() > 170 {
+                if tries.get() > 170 {
+                    ui.set_gallery_message("Accès refusé. Autorisez « Photos et vidéos » pour Plimb Studio dans les paramètres Android, puis appuyez sur « Réessayer ».".into());
+                }
+                t2.stop();
+                return;
+            }
+            if platform::has_media_permission() {
+                t2.stop();
+                open_gallery(&ui);
+            }
+        });
         return;
     }
     ui.set_gallery_message("Recherche des images…".into());
@@ -637,20 +822,29 @@ fn open_gallery(ui: &AppWindow) {
     std::thread::spawn(move || {
         let files = platform::list_images(&platform::gallery_roots());
         if files.is_empty() {
-            let _ = weak.upgrade_in_event_loop(|ui| ui.set_gallery_message("Aucune image trouvée dans DCIM, Pictures ou Download.".into()));
+            let _ = weak.upgrade_in_event_loop(|ui| ui.set_gallery_message("Aucune image ni vidéo trouvée dans DCIM, Pictures, Movies ou Download.".into()));
             return;
         }
         let mut batch = Vec::new();
         let total = files.len();
         for (i, f) in files.into_iter().enumerate() {
-            let thumb = image::ImageReader::open(&f)
-                .ok()
-                .and_then(|r| r.with_guessed_format().ok())
-                .and_then(|r| r.decode().ok())
-                .map(|im| im.thumbnail(220, 220).to_rgba8());
+            let is_video = platform::is_video(&f);
+            let thumb = if is_video {
+                Some(
+                    crate::video::first_frame(&f)
+                        .map(|(fr, _)| image::DynamicImage::ImageRgb8(fr).thumbnail(220, 220).to_rgba8())
+                        .unwrap_or_else(|_| image::RgbaImage::from_pixel(64, 64, image::Rgba([40, 42, 50, 255]))),
+                )
+            } else {
+                image::ImageReader::open(&f)
+                    .ok()
+                    .and_then(|r| r.with_guessed_format().ok())
+                    .and_then(|r| r.decode().ok())
+                    .map(|im| im.thumbnail(220, 220).to_rgba8())
+            };
             if let Some(t) = thumb {
                 let buf = SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(t.as_raw(), t.width(), t.height());
-                batch.push((f.to_string_lossy().to_string(), buf));
+                batch.push((f.to_string_lossy().to_string(), buf, is_video));
             }
             if batch.len() >= 6 || i + 1 == total {
                 let items = std::mem::take(&mut batch);
@@ -662,8 +856,8 @@ fn open_gallery(ui: &AppWindow) {
                         let model = ui.get_gallery();
                         let vm = model.as_any().downcast_ref::<VecModel<GalleryItem>>();
                         if let Some(vm) = vm {
-                            for (p, b) in items {
-                                vm.push(GalleryItem { path: p.into(), thumb: slint::Image::from_rgba8(b) });
+                            for (p, b, v) in items {
+                                vm.push(GalleryItem { path: p.into(), thumb: slint::Image::from_rgba8(b), video: v });
                             }
                         }
                     })
@@ -877,7 +1071,7 @@ pub fn run() -> Result<(), slint::PlatformError> {
             turns: Vec::new(),
             stop: Arc::new(AtomicBool::new(false)),
             generating: false,
-            chroma: ChromaState { source: None, preview: None, name: String::new(), prob: None, preview_prob: None },
+            chroma: ChromaState::empty(),
             release: None,
             worker,
             toast_id: 0,
@@ -1007,7 +1201,7 @@ pub fn run() -> Result<(), slint::PlatformError> {
     ui.on_chroma_pick(move || {
         let ui = w.unwrap();
         if platform::has_native_picker() {
-            if let Some(p) = platform::pick_image() {
+            if let Some(p) = platform::pick_media() {
                 chroma_set_image(&ui, p);
             }
         } else {
