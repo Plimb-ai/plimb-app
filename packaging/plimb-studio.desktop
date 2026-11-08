@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Plimb Studio
+Comment=Les modèles d'IA de Plimb, en local
+Exec=plimb-studio
+Icon=plimb-studio
+Categories=Utility;Graphics;Science;
+Terminal=false

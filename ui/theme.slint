@@ -1,0 +1,46 @@
+// Palette et typographie de Plimb Studio.
+
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    // 0 = auto (système), 1 = clair, 2 = sombre
+    in-out property <int> mode: 0;
+    in-out property <bool> system-dark: true;
+    out property <bool> dark: mode == 2 || (mode == 0 && system-dark);
+
+    out property <color> bg: dark ? #0f1013 : #f5f5f8;
+    out property <color> bg-glow: dark ? #1d1838 : #e7e3ff;
+    out property <color> surface: dark ? #191b20 : #ffffff;
+    out property <color> surface-2: dark ? #22252c : #eeeff4;
+    out property <color> surface-3: dark ? #2c3039 : #e2e4eb;
+    out property <color> outline: dark ? #30343d : #d9dbe3;
+    out property <color> text: dark ? #eceef2 : #15171c;
+    out property <color> text-muted: dark ? #a2a7b2 : #5b6170;
+    out property <color> text-faint: dark ? #737885 : #8a8f9c;
+    out property <color> accent: dark ? #9a8cff : #5a45e0;
+    out property <color> accent-soft: dark ? #2b2650 : #e6e1ff;
+    out property <color> on-accent: dark ? #120d2b : #ffffff;
+    out property <color> danger: dark ? #ff8a80 : #c62828;
+    out property <color> success: dark ? #6fdba6 : #1b8a5a;
+    out property <color> scrim: #000000a0;
+
+    // Couleurs des catégories
+    out property <color> c-chat: #7c5cfa;
+    out property <color> c-story: #e59a2f;
+    out property <color> c-chroma: #1fae7a;
+
+    out property <length> radius-l: 24px;
+    out property <length> radius-m: 16px;
+    out property <length> radius-s: 10px;
+
+    out property <length> fs-hero: 30px;
+    out property <length> fs-title: 21px;
+    out property <length> fs-body: 15px;
+    out property <length> fs-small: 13px;
+
+    public pure function category-color(i: int) -> color {
+        if i == 0 { return c-chat; }
+        if i == 1 { return c-story; }
+        return c-chroma;
+    }
+}
