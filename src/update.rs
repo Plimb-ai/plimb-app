@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 
-pub const REPO: &str = "plimb-ai/pilmb-app";
+pub const REPO: &str = "Plimb-ai/plimb-app";
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Debug)]

@@ -28,7 +28,7 @@ Fonctions principales :
 
 ## Télécharger
 
-Les binaires sont publiés dans les [Releases](https://github.com/plimb-ai/pilmb-app/releases) :
+Les binaires sont publiés dans les [Releases](https://github.com/Plimb-ai/plimb-app/releases) :
 
 - `plimb-studio-windows-x86_64.exe` — Windows 10/11 ;
 - `plimb-studio-linux-x86_64` (ou l'archive `.tar.gz`) — Linux x86_64 ;

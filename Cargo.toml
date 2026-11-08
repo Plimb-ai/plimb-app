@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Plimb Studio : l'IA locale avec les modèles Plimb"
 license = "MIT"
-repository = "https://github.com/plimb-ai/pilmb-app"
+repository = "https://github.com/Plimb-ai/plimb-app"
 build = "build.rs"
 default-run = "plimb-studio"
 
