@@ -1,0 +1,389 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgctxt "AppWindow"
+msgid "100% local, 100% Rust"
+msgstr "100 % local, 100 % Rust"
+
+msgctxt "AppWindow"
+msgid "A low temperature gives more predictable answers, a high temperature more creative ones."
+msgstr "Une température basse donne des réponses plus prévisibles, une température haute plus créatives."
+
+msgctxt "AppWindow"
+msgid "AI models built by Plimb, right on your device. Everything runs locally: your texts and images never leave your machine."
+msgstr "Les modèles d'IA conçus par Plimb, directement sur votre appareil. Tout fonctionne en local : vos textes et vos images ne quittent jamais votre machine."
+
+msgctxt "AppWindow"
+msgid "About"
+msgstr "À propos"
+
+msgctxt "AppWindow"
+msgid "After a first download, every model runs offline on your device's processor."
+msgstr "Après un premier téléchargement, chaque modèle fonctionne hors ligne sur le processeur de votre appareil."
+
+msgctxt "AppWindow"
+msgid "All models come from huggingface.co/plimb. New models will arrive with app updates."
+msgstr "Tous les modèles proviennent de huggingface.co/plimb. De nouveaux modèles arriveront avec les mises à jour de l'application."
+
+msgctxt "AppWindow"
+msgid "Auto"
+msgstr "Auto"
+
+msgctxt "AppWindow"
+msgid "Background"
+msgstr "Arrière-plan"
+
+msgctxt "AppWindow"
+msgid "Black"
+msgstr "Noir"
+
+msgctxt "AppWindow"
+msgid "Blue"
+msgstr "Bleu"
+
+msgctxt "AppWindow"
+msgid "Cancel"
+msgstr "Annuler"
+
+msgctxt "AppWindow"
+msgid "Change"
+msgstr "Changer"
+
+msgctxt "AppWindow"
+msgid "Chat"
+msgstr "Discussion"
+
+msgctxt "AppWindow"
+msgid "Chat with Gladios"
+msgstr "Discutez avec Gladios"
+
+msgctxt "AppWindow"
+msgid "Check"
+msgstr "Rechercher"
+
+msgctxt "AppWindow"
+msgid "Check now"
+msgstr "Rechercher maintenant"
+
+msgctxt "AppWindow"
+msgid "Check on startup"
+msgstr "Rechercher au démarrage"
+
+msgctxt "AppWindow"
+msgid "Checking…"
+msgstr "Recherche…"
+
+msgctxt "AppWindow"
+msgid "Choose an image or a video"
+msgstr "Choisir une image ou une vidéo"
+
+msgctxt "AppWindow"
+msgid "Choose an image or a video with a green background"
+msgstr "Choisissez une image ou une vidéo avec un fond vert"
+
+msgctxt "AppWindow"
+msgid "Clear"
+msgstr "Effacer"
+
+msgctxt "AppWindow"
+msgid "Close"
+msgstr "Fermer"
+
+msgctxt "AppWindow"
+msgid "Color keying"
+msgstr "Détourage couleur"
+
+msgctxt "AppWindow"
+msgid "Color to remove"
+msgstr "Couleur à retirer"
+
+msgctxt "AppWindow"
+msgid "Dark"
+msgstr "Sombre"
+
+msgctxt "AppWindow"
+msgid "Defaults"
+msgstr "Par défaut"
+
+msgctxt "AppWindow"
+msgid "Detection threshold"
+msgstr "Seuil de détection"
+
+msgctxt "AppWindow"
+msgid "Download the APK"
+msgstr "Télécharger l'APK"
+
+msgctxt "AppWindow"
+msgid "Folder"
+msgstr "Dossier"
+
+msgctxt "AppWindow"
+msgid "Generation settings"
+msgstr "Paramètres de génération"
+
+msgctxt "AppWindow"
+msgid "Green"
+msgstr "Vert"
+
+msgctxt "AppWindow"
+msgid "Home"
+msgstr "Accueil"
+
+msgctxt "AppWindow"
+msgid "Image or video"
+msgstr "Image ou vidéo"
+
+msgctxt "AppWindow"
+msgid "Install version {}"
+msgstr "Installer la version {}"
+
+msgctxt "AppWindow"
+msgid "Installed version: {}"
+msgstr "Version installée : {}"
+
+msgctxt "AppWindow"
+msgid "Language"
+msgstr "Langue"
+
+msgctxt "AppWindow"
+msgid "Later"
+msgstr "Plus tard"
+
+msgctxt "AppWindow"
+msgid "Light"
+msgstr "Clair"
+
+msgctxt "AppWindow"
+msgid "Looking for a new version…"
+msgstr "Recherche d'une nouvelle version…"
+
+msgctxt "AppWindow"
+msgid "MP4 videos do not support transparency: the removed background is replaced by the chosen color. Only H.264 videos are supported."
+msgstr "Les vidéos MP4 ne gèrent pas la transparence : le fond retiré est remplacé par la couleur choisie. Seules les vidéos H.264 sont acceptées."
+
+msgctxt "AppWindow"
+msgid "Manage models"
+msgstr "Gérer les modèles"
+
+msgctxt "AppWindow"
+msgid "Mask"
+msgstr "Masque"
+
+msgctxt "AppWindow"
+msgid "Maximum length (tokens)"
+msgstr "Longueur maximale (tokens)"
+
+msgctxt "AppWindow"
+msgid "Models"
+msgstr "Modèles"
+
+msgctxt "AppWindow"
+msgid "Models ({})"
+msgstr "Modèles ({})"
+
+msgctxt "AppWindow"
+msgid "New version {}"
+msgstr "Nouvelle version {}"
+
+msgctxt "AppWindow"
+msgid "Original"
+msgstr "Original"
+
+msgctxt "AppWindow"
+msgid "Other"
+msgstr "Autre"
+
+msgctxt "AppWindow"
+msgid "Plimb Studio runs Plimb's models entirely on your device, with an inference engine written in Rust. The models are released under the MIT license; see their model cards for training data and limitations."
+msgstr "Plimb Studio exécute les modèles de Plimb entièrement sur votre appareil, grâce à un moteur d'inférence écrit en Rust. Les modèles sont distribués sous licence MIT ; consultez leur fiche pour les données d'entraînement et leurs limites."
+
+msgctxt "AppWindow"
+msgid "Plimb Studio {} is available."
+msgstr "Plimb Studio {} est disponible."
+
+msgctxt "AppWindow"
+msgid "Plimb on Hugging Face"
+msgstr "Plimb sur Hugging Face"
+
+msgctxt "AppWindow"
+msgid "Process video"
+msgstr "Détourer la vidéo"
+
+msgctxt "AppWindow"
+msgid "Processing video · {}"
+msgstr "Détourage de la vidéo · {}"
+
+msgctxt "AppWindow"
+msgid "Red"
+msgstr "Rouge"
+
+msgctxt "AppWindow"
+msgid "Remove background"
+msgstr "Détourer"
+
+msgctxt "AppWindow"
+msgid "Removing background…"
+msgstr "Détourage en cours…"
+
+msgctxt "AppWindow"
+msgid "Repetition penalty"
+msgstr "Pénalité de répétition"
+
+msgctxt "AppWindow"
+msgid "Result"
+msgstr "Résultat"
+
+msgctxt "AppWindow"
+msgid "Retry"
+msgstr "Réessayer"
+
+msgctxt "AppWindow"
+msgid "Settings"
+msgstr "Réglages"
+
+msgctxt "AppWindow"
+msgid "Soft edges"
+msgstr "Bords adoucis"
+
+msgctxt "AppWindow"
+msgid "Source code (GitHub)"
+msgstr "Code source (GitHub)"
+
+msgctxt "AppWindow"
+msgid "Stop"
+msgstr "Arrêter"
+
+msgctxt "AppWindow"
+msgid "Storage"
+msgstr "Stockage"
+
+msgctxt "AppWindow"
+msgid "Story workshop"
+msgstr "Atelier d'histoires"
+
+msgctxt "AppWindow"
+msgid "System"
+msgstr "Système"
+
+msgctxt "AppWindow"
+msgid "Temperature"
+msgstr "Température"
+
+msgctxt "AppWindow"
+msgid "The model was trained mainly on green; other colors are experimental."
+msgstr "Le modèle a été entraîné en priorité sur le vert ; les autres couleurs sont expérimentales."
+
+msgctxt "AppWindow"
+msgid "Theme"
+msgstr "Thème"
+
+msgctxt "AppWindow"
+msgid "This model answers in English. Try one of these questions:"
+msgstr "Ce modèle répond en anglais. Essayez une de ces questions :"
+
+msgctxt "AppWindow"
+msgid "Transparent"
+msgstr "Transparent"
+
+msgctxt "AppWindow"
+msgid "Update"
+msgstr "Mettre à jour"
+
+msgctxt "AppWindow"
+msgid "Updates"
+msgstr "Mises à jour"
+
+msgctxt "AppWindow"
+msgid "Version {}"
+msgstr "Version {}"
+
+msgctxt "AppWindow"
+msgid "Version {} available"
+msgstr "Version {} disponible"
+
+msgctxt "AppWindow"
+msgid "View"
+msgstr "Voir"
+
+msgctxt "AppWindow"
+msgid "What would you like to do?"
+msgstr "Que voulez-vous faire ?"
+
+msgctxt "AppWindow"
+msgid "White"
+msgstr "Blanc"
+
+msgctxt "AppWindow"
+msgid "Write a message in English…"
+msgstr "Écrivez un message en anglais…"
+
+msgctxt "AppWindow"
+msgid "Write the beginning of a story (in English), Gladios imagines the rest."
+msgstr "Écrivez le début d'une histoire (en anglais), Gladios imagine la suite."
+
+msgctxt "AppWindow"
+msgid "Write the story"
+msgstr "Écrire l'histoire"
+
+msgctxt "AppWindow"
+msgid "Your story"
+msgstr "Votre histoire"
+
+msgctxt "AppWindow"
+msgid "{n} model available"
+msgid_plural "{n} models available"
+msgstr[0] "{n} modèle disponible"
+msgstr[1] "{n} modèles disponibles"
+
+msgctxt "CategoryCard"
+msgid "{n} model"
+msgid_plural "{n} models"
+msgstr[0] "{n} modèle"
+msgstr[1] "{n} modèles"
+
+msgctxt "ModelCard"
+msgid "Cancel"
+msgstr "Annuler"
+
+msgctxt "ModelCard"
+msgid "Download · {}"
+msgstr "Télécharger · {}"
+
+msgctxt "ModelCard"
+msgid "Recommended"
+msgstr "Recommandé"
+
+msgctxt "ModelCard"
+msgid "Retry"
+msgstr "Réessayer"
+
+msgctxt "ModelCard"
+msgid "Try it"
+msgstr "Essayer"
+
+msgctxt "ModelCard"
+msgid "View model card on Hugging Face"
+msgstr "Voir la fiche sur Hugging Face"
+
+msgctxt "ModelCard"
+msgid "{} · License {}"
+msgstr "{} · Licence {}"
+
+msgctxt "ModelCard"
+msgid "{} · installed · License {}"
+msgstr "{} · installé · Licence {}"
+
+msgctxt "ModelGate"
+msgid "Cancel"
+msgstr "Annuler"
+
+msgctxt "ModelGate"
+msgid "Download"
+msgstr "Télécharger"
+
+msgctxt "ModelGate"
+msgid "This model is not on your device yet ({}). Download it once and it will then work offline."
+msgstr "Ce modèle n'est pas encore sur votre appareil ({}). Téléchargez-le une fois, il fonctionnera ensuite hors ligne."

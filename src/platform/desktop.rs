@@ -4,9 +4,14 @@ pub fn default_data_dir() -> PathBuf {
     dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("PlimbStudio")
 }
 
-pub fn open_url(url: &str) {
-    if let Err(e) = open::that_detached(url) {
-        log::warn!("impossible d'ouvrir {url} : {e}");
+/// Ouvre un lien dans le navigateur. Renvoie `false` en cas d'échec.
+pub fn open_url(url: &str) -> bool {
+    match open::that_detached(url) {
+        Ok(()) => true,
+        Err(e) => {
+            log::warn!("impossible d'ouvrir {url} : {e}");
+            false
+        }
     }
 }
 

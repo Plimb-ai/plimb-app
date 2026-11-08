@@ -56,7 +56,10 @@ impl VideoReader {
         let track = *track_id;
         let fourcc = t.box_type().map(|b| b.to_string()).unwrap_or_default();
         if t.trak.mdia.minf.stbl.stsd.avc1.is_none() {
-            bail!("codec « {fourcc} » non pris en charge : seules les vidéos H.264 sont acceptées (désactivez le HEVC/H.265 dans l'appareil photo)");
+            bail!(crate::tf!(
+                "codec \"{fourcc}\" is not supported: only H.264 videos are accepted (turn off HEVC/H.265 in your camera settings)",
+                "codec « {fourcc} » non pris en charge : seules les vidéos H.264 sont acceptées (désactivez le HEVC/H.265 dans l'appareil photo)"
+            ));
         }
         let avc1 = t.trak.mdia.minf.stbl.stsd.avc1.as_ref().unwrap();
         let nal_len = (avc1.avcc.length_size_minus_one & 3) as usize + 1;

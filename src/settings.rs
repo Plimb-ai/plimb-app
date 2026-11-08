@@ -30,6 +30,8 @@ impl Default for GenSettings {
 pub struct Settings {
     /// 0 = auto, 1 = clair, 2 = sombre
     pub theme: i32,
+    /// 0 = langue du système, 1 = français, 2 = anglais
+    pub language: i32,
     pub auto_update_check: bool,
     pub chat: GenSettings,
     pub story: GenSettings,
@@ -40,6 +42,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             theme: 0,
+            language: 0,
             auto_update_check: true,
             chat: GenSettings::chat_default(),
             story: GenSettings::story_default(),

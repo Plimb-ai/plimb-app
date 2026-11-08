@@ -3932,6 +3932,7 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-build",
+ "sys-locale",
  "ureq",
  "winresource",
 ]

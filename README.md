@@ -23,6 +23,7 @@ Fonctions principales :
 - discussion avec réponses en streaming, historique, paramètres (longueur, Top-K, Top-P, température, pénalité de répétition) ;
 - détourage d'images : choix de la couleur, seuil, bords adoucis, fond transparent/blanc/noir, vue du masque, export PNG ;
 - détourage de vidéos MP4 (H.264) : traitement image par image avec progression, fond noir ou blanc, export MP4 (le son n'est pas conservé, le HEVC/H.265 n'est pas pris en charge) ;
+- interface en **français et en anglais** (langue du système par défaut, modifiable dans les réglages) ;
 - thème auto/clair/sombre, interface adaptée au bureau comme au téléphone ;
 - **mises à jour intégrées** : l'app vérifie la dernière release GitHub et se met à jour
   (remplacement de l'exécutable sur Windows/Linux, téléchargement de l'APK sur Android).
@@ -92,7 +93,9 @@ src/catalog.rs catalogue des modèles Plimb et catégories
 src/update.rs  vérification des releases GitHub
 src/video.rs   lecture/écriture MP4 H.264 (mp4 + OpenH264)
 src/platform/  spécificités bureau / Android (fichiers, liens, permissions, auto-update)
-ui/            interface Slint
+ui/            interface Slint (textes en anglais via @tr)
+lang/fr/       traduction française de l'interface (tools/i18n_po.py la régénère)
+src/i18n.rs    langue active et textes produits côté Rust
 ```
 
 Pour ajouter un modèle : déclarez-le dans `src/catalog.rs` (et son moteur dans `src/ai/` si

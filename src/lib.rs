@@ -1,6 +1,7 @@
 //! Plimb Studio : application d'IA locale pour les modèles Plimb.
 
 pub mod ai;
+pub mod i18n;
 mod app;
 pub mod catalog;
 mod net;

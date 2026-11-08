@@ -35,7 +35,8 @@ fn sdk_int() -> i32 {
     with_env(|env, _| env.get_static_field("android/os/Build$VERSION", "SDK_INT", "I")?.i()).unwrap_or(30)
 }
 
-pub fn open_url(url: &str) {
+/// Ouvre un lien dans le navigateur. Renvoie `false` si Android a refusé.
+pub fn open_url(url: &str) -> bool {
     let url = url.to_string();
     with_env(|env, activity| {
         let jurl = env.new_string(&url)?;
@@ -52,7 +53,8 @@ pub fn open_url(url: &str) {
         env.call_method(&intent, "addFlags", "(I)Landroid/content/Intent;", &[JValue::Int(0x1000_0000)])?;
         env.call_method(activity, "startActivity", "(Landroid/content/Intent;)V", &[JValue::Object(&intent)])?;
         Ok(())
-    });
+    })
+    .is_some()
 }
 
 pub fn open_folder(_path: &std::path::Path) {}
