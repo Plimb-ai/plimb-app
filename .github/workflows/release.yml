@@ -1,0 +1,196 @@
+# Compile Plimb Studio pour Linux, Windows et Android, puis publie automatiquement
+# une release GitHub à chaque push sur `main`.
+#
+# Numéro de version :
+#   - si la version de Cargo.toml est plus récente que le dernier tag, elle est utilisée telle quelle
+#     (pour une version mineure/majeure, il suffit donc de modifier Cargo.toml) ;
+#   - sinon le numéro de correctif du dernier tag est incrémenté (0.1.0 -> 0.1.1 -> 0.1.2…).
+#
+# Les applications vérifient au démarrage la dernière release et proposent la mise à jour.
+
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        name: Calcul de la version
+        run: |
+          base=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          last=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n1 | sed 's/^v//')
+          if [ -z "$last" ]; then
+            version="$base"
+          else
+            highest=$(printf '%s\n%s\n' "$base" "$last" | sort -V | tail -n1)
+            if [ "$highest" = "$base" ] && [ "$base" != "$last" ]; then
+              version="$base"
+            else
+              IFS=. read -r major minor patch <<< "${last%%-*}"
+              version="$major.$minor.$((patch + 1))"
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Version : $version (dernier tag : ${last:-aucun})"
+
+  linux:
+    name: Linux x86_64
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dépendances système
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: linux
+      - name: Applique la version
+        run: sed -i "0,/^version = .*/s//version = \"${{ needs.version.outputs.version }}\"/" Cargo.toml
+      - name: Compilation
+        run: cargo build --release --bin plimb-studio
+      - name: Paquets
+        run: |
+          mkdir -p dist pkg/plimb-studio
+          cp target/release/plimb-studio dist/plimb-studio-linux-x86_64
+          cp target/release/plimb-studio assets/icon.png packaging/plimb-studio.desktop pkg/plimb-studio/
+          tar -C pkg -czf dist/plimb-studio-linux-x86_64.tar.gz plimb-studio
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  windows:
+    name: Windows x86_64
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows
+      - name: Applique la version
+        shell: bash
+        run: sed -i "0,/^version = .*/s//version = \"${{ needs.version.outputs.version }}\"/" Cargo.toml
+      - name: Compilation
+        run: cargo build --release --bin plimb-studio
+      - name: Paquet
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/plimb-studio.exe dist/plimb-studio-windows-x86_64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  android:
+    name: Android arm64
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: SDK & NDK Android
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;35.0.0" "ndk;27.2.12479018"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - name: cargo-apk
+        run: cargo install cargo-apk --locked
+      - name: Clé de signature
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "CARGO_APK_RELEASE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret ANDROID_KEYSTORE_BASE64 absent : l'APK est signé avec une clé temporaire. Les mises à jour nécessiteront de désinstaller l'app. Voir README."
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.keystore" -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android \
+              -dname "CN=Plimb Studio,O=Plimb,C=FR"
+            echo "CARGO_APK_RELEASE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "CARGO_APK_RELEASE_KEYSTORE_PASSWORD=android" >> "$GITHUB_ENV"
+          fi
+      - name: Applique la version
+        run: sed -i "0,/^version = .*/s//version = \"${{ needs.version.outputs.version }}\"/" Cargo.toml
+      - name: Compilation de l'APK
+        run: cargo apk build --release --lib --target aarch64-linux-android
+      - name: Paquet
+        run: |
+          mkdir -p dist
+          cp target/release/apk/plimb-studio.apk dist/plimb-studio-android-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  release:
+    name: Publication
+    needs: [version, linux, windows, android]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Empreintes SHA-256
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Plimb Studio ${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          make_latest: "true"
+          files: dist/*

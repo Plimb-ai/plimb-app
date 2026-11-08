@@ -1,0 +1,2159 @@
+// Plimb Studio — interface principale.
+
+import { ScrollView, Palette } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Icon, CategoryBadge } from "icons.slint";
+import { IconButton, PillButton, Chip, Tag, Card, ProgressBar, Segmented, Toggle, LabeledSlider, Scrim, SectionTitle } from "components.slint";
+
+export { Theme }
+
+export struct CategoryData {
+    id: string,
+    title: string,
+    subtitle: string,
+    count: int,
+    icon: string,
+    color-index: int,
+}
+
+export struct ModelData {
+    id: string,
+    name: string,
+    repo-url: string,
+    task-id: string,
+    task-title: string,
+    description: string,
+    size: string,
+    details: string,
+    state: int, // 0 absent, 1 téléchargement, 2 installé, 3 erreur
+    progress: float,
+    progress-text: string,
+    recommended: bool,
+    license: string,
+    color-index: int,
+}
+
+export struct ChatMsg {
+    user: bool,
+    text: string,
+    info: string,
+}
+
+export struct GalleryItem {
+    path: string,
+    thumb: image,
+}
+
+export struct GenParams {
+    max-tokens: float,
+    top-k: float,
+    top-p: float,
+    temperature: float,
+    repetition-penalty: float,
+}
+
+// ---------------------------------------------------------------- éléments de page
+
+component TopBar inherits Rectangle {
+    in property <string> title;
+    in property <string> left-icon: "back";
+    in property <string> subtitle;
+    in property <int> color-index: -1;
+    callback left-clicked();
+    callback subtitle-clicked();
+    height: 64px;
+    background: Theme.bg;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 4px;
+        IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: root.left-icon;
+            clicked => {
+                root.left-clicked();
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Text {
+                text: root.title;
+                font-size: 18px;
+                font-weight: 700;
+                color: root.color-index >= 0 ? Theme.category-color(root.color-index) : Theme.text;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+            if root.subtitle != "": HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 26px;
+                    width: sub-lay.preferred-width;
+                    border-radius: 13px;
+                    background: Theme.surface-2;
+                    sub-lay := HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 8px;
+                        spacing: 4px;
+                        Text {
+                            text: root.subtitle;
+                            font-size: 12px;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Icon {
+                            y: (parent.height - self.height) / 2;
+                            name: "chevron";
+                            size: 14px;
+                            color: Theme.text-muted;
+                        }
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.subtitle-clicked();
+                        }
+                    }
+                }
+            }
+        }
+        @children
+    }
+}
+
+component CategoryCard inherits Rectangle {
+    in property <CategoryData> data;
+    callback clicked();
+    border-radius: Theme.radius-l;
+    background: ta.pressed ? Theme.surface-2 : Theme.surface;
+    border-width: 1px;
+    border-color: ta.has-hover ? Theme.category-color(data.color-index) : Theme.outline;
+
+    VerticalLayout {
+        padding: 22px;
+        spacing: 6px;
+        alignment: start;
+        CategoryBadge {
+            tint: Theme.category-color(root.data.color-index);
+            icon: root.data.icon;
+            size: 48px;
+        }
+        Rectangle {
+            height: 10px;
+        }
+        Text {
+            text: root.data.count + (root.data.count > 1 ? " modèles" : " modèle");
+            font-size: Theme.fs-small;
+            color: Theme.text-muted;
+        }
+        Text {
+            text: root.data.title;
+            font-size: 19px;
+            font-weight: 700;
+            color: Theme.text;
+            overflow: elide;
+        }
+        Text {
+            text: root.data.subtitle;
+            font-size: Theme.fs-small;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component ModelCard inherits Card {
+    in property <ModelData> data;
+    in property <bool> show-task;
+    callback download();
+    callback cancel();
+    callback delete();
+    callback try-it();
+    callback open-url(string);
+    height: lay.preferred-height;
+
+    lay := VerticalLayout {
+        padding: 20px;
+        spacing: 8px;
+
+        if root.data.recommended || root.show-task: HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            if root.show-task: Rectangle {
+                height: 24px;
+                width: task-t.preferred-width + 20px;
+                border-radius: 12px;
+                background: Theme.category-color(root.data.color-index).with-alpha(0.18);
+                task-t := Text {
+                    text: root.data.task-title;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: Theme.category-color(root.data.color-index);
+                }
+            }
+            if root.data.recommended && !root.show-task: HorizontalLayout {
+                spacing: 6px;
+                Icon {
+                    y: (parent.height - self.height) / 2;
+                    name: "spark";
+                    size: 14px;
+                    color: #f2b33d;
+                    thickness: 1.5px;
+                }
+                Text {
+                    text: "Recommandé";
+                    font-size: 12px;
+                    color: Theme.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.data.name;
+                font-size: 18px;
+                font-weight: 700;
+                color: Theme.text;
+                horizontal-stretch: 1;
+                wrap: word-wrap;
+            }
+            if root.data.state == 2: IconButton {
+                icon: "trash";
+                tint: Theme.text-muted;
+                icon-size: 20px;
+                width: 36px;
+                height: 36px;
+                clicked => {
+                    root.delete();
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                name: root.data.state == 2 ? "check" : "download";
+                size: 16px;
+                color: root.data.state == 2 ? Theme.success : Theme.text-muted;
+            }
+            Text {
+                text: root.data.size + (root.data.state == 2 ? " · installé" : "") + " · Licence " + root.data.license;
+                font-size: Theme.fs-small;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            spacing: 6px;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                name: "external";
+                size: 16px;
+                color: Theme.accent;
+            }
+            Text {
+                text: "Voir la fiche sur Hugging Face";
+                font-size: Theme.fs-small;
+                color: Theme.accent;
+                vertical-alignment: center;
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.open-url(root.data.repo-url);
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.data.description;
+            font-size: Theme.fs-body;
+            color: Theme.text;
+            wrap: word-wrap;
+        }
+        Text {
+            text: root.data.details;
+            font-size: Theme.fs-small;
+            color: Theme.text-faint;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: 4px;
+        }
+
+        if root.data.state == 0 || root.data.state == 3: VerticalLayout {
+            spacing: 6px;
+            if root.data.state == 3: Text {
+                text: root.data.progress-text;
+                color: Theme.danger;
+                font-size: Theme.fs-small;
+                wrap: word-wrap;
+            }
+            PillButton {
+                text: root.data.state == 3 ? "Réessayer" : "Télécharger · " + root.data.size;
+                icon: "download";
+                variant: 1;
+                clicked => {
+                    root.download();
+                }
+            }
+        }
+        if root.data.state == 1: VerticalLayout {
+            spacing: 8px;
+            HorizontalLayout {
+                Text {
+                    text: root.data.progress-text;
+                    font-size: Theme.fs-small;
+                    color: Theme.text-muted;
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                }
+                PillButton {
+                    text: "Annuler";
+                    variant: 3;
+                    height: 36px;
+                    clicked => {
+                        root.cancel();
+                    }
+                }
+            }
+            ProgressBar {
+                progress: root.data.progress;
+            }
+        }
+        if root.data.state == 2: PillButton {
+            text: "Essayer";
+            icon: "chevron-right";
+            variant: 0;
+            clicked => {
+                root.try-it();
+            }
+        }
+    }
+}
+
+// Panneau affiché quand le modèle n'est pas prêt (absent, en téléchargement, en chargement).
+component ModelGate inherits Rectangle {
+    in property <ModelData> data;
+    in property <int> status; // 0 non prêt, 1 chargement, 2 prêt, 3 erreur
+    in property <string> status-text;
+    callback download();
+    callback cancel();
+
+    VerticalLayout {
+        alignment: center;
+        padding: 32px;
+        spacing: 14px;
+        HorizontalLayout {
+            alignment: center;
+            CategoryBadge {
+                tint: Theme.category-color(root.data.color-index);
+                icon: root.data.state == 2 ? "layers" : "download";
+                size: 64px;
+            }
+        }
+        Text {
+            text: root.data.name;
+            font-size: 22px;
+            font-weight: 700;
+            color: Theme.text;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.data.state == 1 ? root.data.progress-text
+                : root.data.state == 2 ? root.status-text
+                : root.data.state == 3 ? root.data.progress-text
+                : "Ce modèle n'est pas encore sur votre appareil (" + root.data.size + "). Téléchargez-le une fois, il fonctionnera ensuite hors ligne.";
+            font-size: Theme.fs-body;
+            color: root.data.state == 3 || root.status == 3 ? Theme.danger : Theme.text-muted;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+        if root.data.state == 1: HorizontalLayout {
+            alignment: center;
+            ProgressBar {
+                width: min(360px, root.width - 64px);
+                progress: root.data.progress;
+            }
+        }
+        if root.data.state == 2 && root.status == 1: HorizontalLayout {
+            alignment: center;
+            ProgressBar {
+                width: min(360px, root.width - 64px);
+                progress: (animation-tick() / 1ms).mod(1500) / 1500;
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            if root.data.state == 0 || root.data.state == 3: PillButton {
+                text: "Télécharger";
+                icon: "download";
+                clicked => {
+                    root.download();
+                }
+            }
+            if root.data.state == 1: PillButton {
+                text: "Annuler";
+                variant: 2;
+                clicked => {
+                    root.cancel();
+                }
+            }
+        }
+    }
+}
+
+component Bubble inherits HorizontalLayout {
+    in property <ChatMsg> msg;
+    in property <length> max-w;
+    alignment: msg.user ? end : start;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+
+    Rectangle {
+        width: min(root.max-w, natural.preferred-width + 32px);
+        height: inner.preferred-height;
+        border-radius: 18px;
+        background: root.msg.user ? Theme.accent : Theme.surface-2;
+
+        natural := Text {
+            visible: false;
+            text: root.msg.text == "" ? "…" : root.msg.text;
+            font-size: Theme.fs-body;
+        }
+        inner := VerticalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: 4px;
+            TextInput {
+                text: root.msg.text == "" ? "…" : root.msg.text;
+                read-only: true;
+                single-line: false;
+                wrap: word-wrap;
+                font-size: Theme.fs-body;
+                color: root.msg.user ? Theme.on-accent : Theme.text;
+                selection-background-color: Theme.accent-soft;
+            }
+            if root.msg.info != "": Text {
+                text: root.msg.info;
+                font-size: 11px;
+                color: root.msg.user ? Theme.on-accent.with-alpha(0.7) : Theme.text-faint;
+            }
+        }
+    }
+}
+
+component Composer inherits Rectangle {
+    in property <bool> busy;
+    in property <bool> enabled: true;
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    callback send(string);
+    callback stop();
+    height: 60px;
+    border-radius: 30px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.outline;
+
+    HorizontalLayout {
+        padding-left: 22px;
+        padding-right: 8px;
+        spacing: 8px;
+        Rectangle {
+            horizontal-stretch: 1;
+            input := TextInput {
+                width: 100%;
+                single-line: true;
+                enabled: root.enabled;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                vertical-alignment: center;
+                accepted => {
+                    if !root.busy && self.text != "" {
+                        root.send(self.text);
+                    }
+                }
+            }
+            if input.text == "": Text {
+                x: 0;
+                text: root.placeholder;
+                font-size: Theme.fs-body;
+                color: Theme.text-faint;
+                vertical-alignment: center;
+                height: 100%;
+                overflow: elide;
+            }
+        }
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            background: root.busy ? Theme.danger : (input.text != "" && root.enabled ? Theme.accent : Theme.surface-3);
+            Icon {
+                name: root.busy ? "stop" : "send";
+                size: 20px;
+                color: root.busy ? white : (input.text != "" ? Theme.on-accent : Theme.text-faint);
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    if root.busy {
+                        root.stop();
+                    } else if input.text != "" && root.enabled {
+                        root.send(input.text);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- fenêtre principale
+
+export component AppWindow inherits Window {
+    title: "Plimb Studio";
+    icon: @image-url("../assets/icon.png");
+    preferred-width: 1040px;
+    preferred-height: 780px;
+    min-width: 340px;
+    min-height: 480px;
+    background: Theme.bg;
+    default-font-size: Theme.fs-body;
+
+    // Navigation : 0 accueil, 1 catégorie, 2 modèles, 3 chat, 4 histoires, 5 détourage
+    in-out property <int> page: 0;
+    in property <string> app-version;
+    in property <bool> mobile;
+    in property <bool> native-picker: true;
+    in property <string> toast;
+
+    in property <[CategoryData]> categories;
+    in property <[ModelData]> models;
+    in property <CategoryData> current-category;
+    in property <[ModelData]> category-models;
+    in property <ModelData> active-model;
+    in property <int> model-status;
+    in property <string> model-status-text;
+    in property <string> storage-text;
+
+    // Discussion
+    in property <[ChatMsg]> messages;
+    in property <bool> generating;
+    in-out property <string> chat-draft;
+
+    // Histoires
+    in-out property <string> story-prompt;
+    in property <string> story-output;
+    in property <string> story-info;
+
+    // Détourage
+    in property <image> chroma-preview;
+    in property <bool> chroma-has-image;
+    in property <bool> chroma-has-result;
+    in property <bool> chroma-busy;
+    in property <string> chroma-info;
+    in-out property <int> chroma-view: 0;
+    in-out property <int> chroma-preset: 0;
+    in-out property <float> chroma-r: 0.20;
+    in-out property <float> chroma-g: 0.85;
+    in-out property <float> chroma-b: 0.30;
+    in-out property <float> chroma-threshold: 0.5;
+    in-out property <bool> chroma-soft: true;
+    in-out property <int> chroma-bg: 0;
+
+    // Galerie intégrée (Android)
+    in-out property <bool> gallery-open;
+    in property <[GalleryItem]> gallery;
+    in property <string> gallery-message;
+
+    // Paramètres de génération
+    in property <GenParams> gen-params;
+    in-out property <bool> params-open;
+    property <GenParams> edit-params;
+
+    // Mises à jour
+    in property <bool> update-available;
+    in property <string> update-version;
+    in property <string> update-notes;
+    in property <int> update-state; // 0 repos, 1 vérification, 2 téléchargement, 3 erreur, 4 à jour
+    in property <float> update-progress;
+    in property <string> update-message;
+    in-out property <bool> update-open;
+    in-out property <bool> auto-update;
+
+    in-out property <bool> drawer-open;
+    in-out property <bool> settings-open;
+
+    callback open-category(string);
+    callback try-model(string);
+    callback download-model(string);
+    callback cancel-download(string);
+    callback delete-model(string);
+    callback open-url(string);
+    callback navigated(int);
+    callback send-message(string);
+    callback stop-generation();
+    callback new-chat();
+    callback story-generate(string);
+    callback story-clear();
+    callback chroma-pick();
+    callback chroma-run();
+    callback chroma-save();
+    callback chroma-refresh();
+    callback gallery-select(string);
+    callback gallery-retry();
+    callback apply-params(GenParams);
+    callback reset-params();
+    callback set-theme(int);
+    callback set-auto-update(bool);
+    callback check-update();
+    callback install-update();
+    callback open-data-folder();
+
+    // Zone utilisable (barres système et clavier virtuel exclus sur mobile)
+    property <length> inset-top: self.safe-area-insets.top;
+    property <length> inset-bottom: max(self.safe-area-insets.bottom, self.virtual-keyboard-size.height);
+    property <length> avail-w: self.width - self.safe-area-insets.left - self.safe-area-insets.right;
+    property <length> avail-h: self.height - self.inset-top - self.inset-bottom;
+    property <bool> wide: self.avail-w > 760px;
+    property <length> content-w: min(self.avail-w, 920px);
+
+    init => {
+        Theme.system-dark = Palette.color-scheme == ColorScheme.dark;
+    }
+
+    public function apply-theme() {
+        Palette.color-scheme = Theme.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    public function go(p: int) {
+        root.page = p;
+        root.drawer-open = false;
+        root.navigated(p);
+    }
+
+    public function go-back() -> bool {
+        if root.gallery-open {
+            root.gallery-open = false;
+            return true;
+        }
+        if root.params-open {
+            root.params-open = false;
+            return true;
+        }
+        if root.settings-open || root.update-open || root.drawer-open {
+            root.settings-open = false;
+            root.update-open = false;
+            root.drawer-open = false;
+            return true;
+        }
+        if root.page >= 3 {
+            root.go(1);
+            return true;
+        }
+        if root.page > 0 {
+            root.go(0);
+            return true;
+        }
+        return false;
+    }
+
+    function open-params() {
+        root.edit-params = root.gen-params;
+        root.params-open = true;
+    }
+
+    changed params-open => {
+        if root.params-open {
+            root.edit-params = root.gen-params;
+        }
+    }
+
+    forward-focus: keys;
+    keys := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Back || e.text == Key.Escape {
+                if root.go-back() {
+                    return accept;
+                }
+            }
+            return reject;
+        }
+    }
+
+    // Halo décoratif
+    Rectangle {
+        x: root.width - self.width * 0.7;
+        y: -self.height * 0.35;
+        width: 520px;
+        height: 520px;
+        border-radius: 260px;
+        background: @radial-gradient(circle, Theme.bg-glow 0%, Theme.bg.with-alpha(0) 70%);
+        opacity: root.page == 0 ? 1 : 0;
+        animate opacity { duration: 250ms; }
+    }
+
+    Rectangle {
+        x: root.safe-area-insets.left;
+        y: root.inset-top;
+        width: root.avail-w;
+        height: root.avail-h;
+
+        // ============================================================ ACCUEIL
+        if root.page == 0: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: "Plimb Studio";
+                    left-icon: "menu";
+                    left-clicked => {
+                        root.drawer-open = true;
+                    }
+                    IconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: "settings";
+                        clicked => {
+                            root.settings-open = true;
+                        }
+                    }
+                }
+                home-scroll := ScrollView {
+                    content-width: self.visible-width;
+                    content-height: home.preferred-height;
+                    home := VerticalLayout {
+                        width: home-scroll.visible-width;
+                        padding-left: max(20px, (home-scroll.visible-width - root.content-w) / 2 + 20px);
+                        padding-right: self.padding-left;
+                        padding-top: 12px;
+                        padding-bottom: 32px;
+                        spacing: 14px;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            Text {
+                                text: "Plimb";
+                                font-size: Theme.fs-hero;
+                                font-weight: 800;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: "Studio";
+                                font-size: Theme.fs-hero;
+                                font-weight: 800;
+                                color: Theme.accent;
+                            }
+                        }
+                        Text {
+                            text: "Les modèles d'IA conçus par Plimb, directement sur votre appareil. Tout fonctionne en local : vos textes et vos images ne quittent jamais votre machine.";
+                            font-size: Theme.fs-body;
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+
+                        if root.update-available: Rectangle {
+                            height: upd-lay.preferred-height;
+                            border-radius: Theme.radius-m;
+                            background: Theme.accent-soft;
+                            upd-lay := HorizontalLayout {
+                                padding: 14px;
+                                spacing: 12px;
+                                Icon {
+                                    y: (parent.height - self.height) / 2;
+                                    name: "refresh";
+                                    color: Theme.accent;
+                                }
+                                Text {
+                                    text: "Plimb Studio " + root.update-version + " est disponible.";
+                                    color: Theme.text;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                    wrap: word-wrap;
+                                }
+                                PillButton {
+                                    text: "Voir";
+                                    height: 38px;
+                                    clicked => {
+                                        root.update-open = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: priv-lay.preferred-height;
+                            border-radius: Theme.radius-m;
+                            background: Theme.surface;
+                            border-width: 1px;
+                            border-color: Theme.outline;
+                            priv-lay := HorizontalLayout {
+                                padding: 16px;
+                                spacing: 14px;
+                                Icon {
+                                    y: 2px;
+                                    name: "shield";
+                                    color: Theme.success;
+                                    size: 24px;
+                                }
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    Text {
+                                        text: "100 % local, 100 % Rust";
+                                        font-weight: 700;
+                                        color: Theme.text;
+                                    }
+                                    Text {
+                                        text: "Après un premier téléchargement, chaque modèle fonctionne hors ligne sur le processeur de votre appareil.";
+                                        font-size: Theme.fs-small;
+                                        color: Theme.text-muted;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: 6px;
+                        }
+                        SectionTitle {
+                            text: "Que voulez-vous faire ?";
+                        }
+
+                        property <int> cols: home.width > 760px ? 3 : home.width > 480px ? 2 : 1;
+                        property <length> gap: 14px;
+                        property <length> inner-w: home.width - home.padding-left - home.padding-right;
+                        property <length> card-w: (self.inner-w - (self.cols - 1) * self.gap) / self.cols;
+                        property <length> card-h: 196px;
+                        Rectangle {
+                            height: ceil(root.categories.length / home.cols) * (home.card-h + home.gap) - home.gap;
+                            for cat[i] in root.categories: CategoryCard {
+                                x: mod(i, home.cols) * (home.card-w + home.gap);
+                                y: floor(i / home.cols) * (home.card-h + home.gap);
+                                width: home.card-w;
+                                height: home.card-h;
+                                data: cat;
+                                clicked => {
+                                    root.open-category(cat.id);
+                                    root.go(1);
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: 6px;
+                        }
+                        Rectangle {
+                            height: 72px;
+                            border-radius: Theme.radius-m;
+                            background: mta.pressed ? Theme.surface-2 : Theme.surface;
+                            border-width: 1px;
+                            border-color: Theme.outline;
+                            HorizontalLayout {
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                spacing: 14px;
+                                Icon {
+                                    y: (parent.height - self.height) / 2;
+                                    name: "layers";
+                                    color: Theme.accent;
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: "Gérer les modèles";
+                                        font-weight: 700;
+                                        color: Theme.text;
+                                    }
+                                    Text {
+                                        text: root.storage-text;
+                                        font-size: Theme.fs-small;
+                                        color: Theme.text-muted;
+                                        overflow: elide;
+                                    }
+                                }
+                                Icon {
+                                    y: (parent.height - self.height) / 2;
+                                    name: "chevron-right";
+                                    color: Theme.text-muted;
+                                }
+                            }
+                            mta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.go(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ CATÉGORIE
+        if root.page == 1: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: root.current-category.title;
+                    left-clicked => {
+                        root.go-back();
+                    }
+                }
+                cat-scroll := ScrollView {
+                    content-width: self.visible-width;
+                    content-height: cat.preferred-height;
+                    cat := VerticalLayout {
+                        width: cat-scroll.visible-width;
+                        padding-left: max(16px, (cat-scroll.visible-width - root.content-w) / 2 + 16px);
+                        padding-right: self.padding-left;
+                        padding-bottom: 32px;
+                        spacing: 14px;
+                        HorizontalLayout {
+                            alignment: center;
+                            padding-top: 8px;
+                            CategoryBadge {
+                                tint: Theme.category-color(root.current-category.color-index);
+                                icon: root.current-category.icon;
+                                size: 76px;
+                            }
+                        }
+                        Text {
+                            text: root.current-category.title;
+                            font-size: 28px;
+                            font-weight: 800;
+                            color: Theme.text;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: root.current-category.subtitle;
+                            color: Theme.text-muted;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: root.current-category.count + (root.current-category.count > 1 ? " modèles disponibles" : " modèle disponible");
+                            font-size: Theme.fs-small;
+                            color: Theme.text-faint;
+                            horizontal-alignment: center;
+                        }
+                        Rectangle {
+                            height: 8px;
+                        }
+                        for m in root.category-models: ModelCard {
+                            data: m;
+                            download => {
+                                root.download-model(m.id);
+                            }
+                            cancel => {
+                                root.cancel-download(m.id);
+                            }
+                            delete => {
+                                root.delete-model(m.id);
+                            }
+                            try-it => {
+                                root.try-model(m.id);
+                            }
+                            open-url(u) => {
+                                root.open-url(u);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ MODÈLES
+        if root.page == 2: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: "Modèles (" + root.models.length + ")";
+                    left-icon: "close";
+                    left-clicked => {
+                        root.go-back();
+                    }
+                }
+                mod-scroll := ScrollView {
+                    content-width: self.visible-width;
+                    content-height: mods.preferred-height;
+                    mods := VerticalLayout {
+                        width: mod-scroll.visible-width;
+                        padding-left: max(16px, (mod-scroll.visible-width - root.content-w) / 2 + 16px);
+                        padding-right: self.padding-left;
+                        padding-bottom: 32px;
+                        spacing: 14px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Text {
+                                text: root.storage-text;
+                                color: Theme.text-muted;
+                                font-size: Theme.fs-small;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                wrap: word-wrap;
+                            }
+                            if !root.mobile: PillButton {
+                                text: "Dossier";
+                                icon: "folder";
+                                variant: 2;
+                                height: 38px;
+                                clicked => {
+                                    root.open-data-folder();
+                                }
+                            }
+                        }
+                        for m in root.models: ModelCard {
+                            data: m;
+                            show-task: true;
+                            download => {
+                                root.download-model(m.id);
+                            }
+                            cancel => {
+                                root.cancel-download(m.id);
+                            }
+                            delete => {
+                                root.delete-model(m.id);
+                            }
+                            try-it => {
+                                root.try-model(m.id);
+                            }
+                            open-url(u) => {
+                                root.open-url(u);
+                            }
+                        }
+                        Text {
+                            text: "Tous les modèles proviennent de huggingface.co/plimb. De nouveaux modèles arriveront avec les mises à jour de l'application.";
+                            font-size: Theme.fs-small;
+                            color: Theme.text-faint;
+                            wrap: word-wrap;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ DISCUSSION
+        if root.page == 3: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: "Discussion";
+                    color-index: 0;
+                    subtitle: root.active-model.name;
+                    left-clicked => {
+                        root.go-back();
+                    }
+                    subtitle-clicked => {
+                        root.go(1);
+                    }
+                    IconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: "tune";
+                        clicked => {
+                            root.open-params();
+                        }
+                    }
+                    IconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: "edit";
+                        enabled: !root.generating && root.messages.length > 0;
+                        clicked => {
+                            root.new-chat();
+                        }
+                    }
+                }
+                Rectangle {
+                    vertical-stretch: 1;
+                    if root.active-model.state != 2 || root.model-status != 2: ModelGate {
+                        data: root.active-model;
+                        status: root.model-status;
+                        status-text: root.model-status-text;
+                        download => {
+                            root.download-model(root.active-model.id);
+                        }
+                        cancel => {
+                            root.cancel-download(root.active-model.id);
+                        }
+                    }
+                    if root.active-model.state == 2 && root.model-status == 2 && root.messages.length == 0: VerticalLayout {
+                        alignment: center;
+                        padding: 24px;
+                        spacing: 10px;
+                        HorizontalLayout {
+                            alignment: center;
+                            CategoryBadge {
+                                tint: Theme.c-chat;
+                                icon: "chat";
+                                size: 64px;
+                            }
+                        }
+                        Text {
+                            text: "Discutez avec Gladios";
+                            font-size: 26px;
+                            font-weight: 800;
+                            color: Theme.text;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Ce modèle répond en anglais. Essayez une de ces questions :";
+                            color: Theme.text-muted;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        for s in ["What is the capital of France?", "Give me three tips to sleep better.", "Explain what a black hole is."]: HorizontalLayout {
+                            alignment: center;
+                            Chip {
+                                text: s;
+                                clicked => {
+                                    root.send-message(s);
+                                }
+                            }
+                        }
+                    }
+                    if root.active-model.state == 2 && root.model-status == 2 && root.messages.length > 0: chat-scroll := ScrollView {
+                        content-width: self.visible-width;
+                        content-height: chat-col.preferred-height;
+                        changed content-height => {
+                            self.content-y = min(0px, self.visible-height - self.content-height);
+                        }
+                        chat-col := VerticalLayout {
+                            width: chat-scroll.visible-width;
+                            padding-left: max(0px, (chat-scroll.visible-width - root.content-w) / 2);
+                            padding-right: self.padding-left;
+                            padding-top: 8px;
+                            padding-bottom: 8px;
+                            for m in root.messages: Bubble {
+                                msg: m;
+                                max-w: min(chat-col.width - chat-col.padding-left * 2, root.content-w) * 0.82;
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    padding-left: max(12px, (root.avail-w - root.content-w) / 2 + 12px);
+                    padding-right: self.padding-left;
+                    padding-bottom: 14px;
+                    padding-top: 6px;
+                    Composer {
+                        busy: root.generating;
+                        enabled: root.active-model.state == 2 && root.model-status == 2;
+                        placeholder: "Écrivez un message en anglais…";
+                        text <=> root.chat-draft;
+                        send(t) => {
+                            root.send-message(t);
+                        }
+                        stop => {
+                            root.stop-generation();
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ HISTOIRES
+        if root.page == 4: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: "Atelier d'histoires";
+                    color-index: 1;
+                    subtitle: root.active-model.name;
+                    left-clicked => {
+                        root.go-back();
+                    }
+                    subtitle-clicked => {
+                        root.go(1);
+                    }
+                    IconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: "tune";
+                        clicked => {
+                            root.open-params();
+                        }
+                    }
+                }
+                if root.active-model.state != 2 || root.model-status != 2: ModelGate {
+                    vertical-stretch: 1;
+                    data: root.active-model;
+                    status: root.model-status;
+                    status-text: root.model-status-text;
+                    download => {
+                        root.download-model(root.active-model.id);
+                    }
+                    cancel => {
+                        root.cancel-download(root.active-model.id);
+                    }
+                }
+                if root.active-model.state == 2 && root.model-status == 2: story-scroll := ScrollView {
+                    vertical-stretch: 1;
+                    content-width: self.visible-width;
+                    content-height: story.preferred-height;
+                    story := VerticalLayout {
+                        width: story-scroll.visible-width;
+                        padding-left: max(16px, (story-scroll.visible-width - root.content-w) / 2 + 16px);
+                        padding-right: self.padding-left;
+                        padding-bottom: 32px;
+                        spacing: 12px;
+
+                        Text {
+                            text: "Écrivez le début d'une histoire (en anglais), Gladios imagine la suite.";
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+                        Card {
+                            height: max(110px, prompt-in.preferred-height + 32px);
+                            border-color: prompt-in.has-focus ? Theme.c-story : Theme.outline;
+                            prompt-in := TextInput {
+                                x: 16px;
+                                y: 16px;
+                                width: parent.width - 32px;
+                                height: parent.height - 32px;
+                                text <=> root.story-prompt;
+                                single-line: false;
+                                wrap: word-wrap;
+                                font-size: 17px;
+                                color: Theme.text;
+                                enabled: !root.generating;
+                            }
+                            if root.story-prompt == "": Text {
+                                x: 16px;
+                                y: 16px;
+                                text: "Once upon a time…";
+                                font-size: 17px;
+                                color: Theme.text-faint;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            for s in ["Once upon a time", "Lily found a little dog in the park.", "Tom wanted to fly like a bird."]: Chip {
+                                text: s;
+                                clicked => {
+                                    root.story-prompt = s;
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            PillButton {
+                                text: root.generating ? "Arrêter" : "Écrire l'histoire";
+                                icon: root.generating ? "stop" : "spark";
+                                tint: root.generating ? Theme.danger : Theme.c-story;
+                                enabled: root.generating || root.story-prompt != "";
+                                clicked => {
+                                    if root.generating {
+                                        root.stop-generation();
+                                    } else {
+                                        root.story-generate(root.story-prompt);
+                                    }
+                                }
+                            }
+                            PillButton {
+                                text: "Effacer";
+                                variant: 2;
+                                enabled: !root.generating;
+                                clicked => {
+                                    root.story-clear();
+                                }
+                            }
+                        }
+                        if root.story-output != "": Card {
+                            height: out-lay.preferred-height;
+                            out-lay := VerticalLayout {
+                                padding: 20px;
+                                spacing: 10px;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Icon {
+                                        name: "book";
+                                        size: 18px;
+                                        color: Theme.c-story;
+                                    }
+                                    Text {
+                                        text: "Votre histoire";
+                                        font-weight: 700;
+                                        color: Theme.text;
+                                        horizontal-stretch: 1;
+                                    }
+                                }
+                                TextInput {
+                                    text: root.story-output;
+                                    read-only: true;
+                                    single-line: false;
+                                    wrap: word-wrap;
+                                    font-size: 17px;
+                                    color: Theme.text;
+                                    selection-background-color: Theme.accent-soft;
+                                }
+                                Text {
+                                    text: root.story-info;
+                                    font-size: 12px;
+                                    color: Theme.text-faint;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ DÉTOURAGE
+        if root.page == 5: Rectangle {
+            VerticalLayout {
+                TopBar {
+                    title: "Détourage couleur";
+                    color-index: 2;
+                    subtitle: root.active-model.name;
+                    left-clicked => {
+                        root.go-back();
+                    }
+                    subtitle-clicked => {
+                        root.go(1);
+                    }
+                }
+                if root.active-model.state != 2 || root.model-status != 2: ModelGate {
+                    vertical-stretch: 1;
+                    data: root.active-model;
+                    status: root.model-status;
+                    status-text: root.model-status-text;
+                    download => {
+                        root.download-model(root.active-model.id);
+                    }
+                    cancel => {
+                        root.cancel-download(root.active-model.id);
+                    }
+                }
+                if root.active-model.state == 2 && root.model-status == 2: chroma-scroll := ScrollView {
+                    vertical-stretch: 1;
+                    content-width: self.visible-width;
+                    content-height: chroma.preferred-height;
+                    chroma := VerticalLayout {
+                        width: chroma-scroll.visible-width;
+                        padding-left: max(16px, (chroma-scroll.visible-width - root.content-w) / 2 + 16px);
+                        padding-right: self.padding-left;
+                        padding-bottom: 32px;
+                        spacing: 14px;
+
+                        Card {
+                            height: min(chroma.width * 0.62, 460px);
+                            clip: true;
+                            if !root.chroma-has-image: VerticalLayout {
+                                alignment: center;
+                                spacing: 10px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Icon {
+                                        name: "image";
+                                        size: 48px;
+                                        color: Theme.text-faint;
+                                        thickness: 1.5px;
+                                    }
+                                }
+                                Text {
+                                    text: "Choisissez une image avec un fond vert";
+                                    color: Theme.text-muted;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            if root.chroma-has-image: Image {
+                                x: 12px;
+                                y: 12px;
+                                width: parent.width - 24px;
+                                height: parent.height - 24px;
+                                source: root.chroma-preview;
+                                image-fit: contain;
+                            }
+                            if root.chroma-busy: Rectangle {
+                                background: Theme.scrim;
+                                border-radius: Theme.radius-l;
+                                Text {
+                                    text: "Détourage en cours…";
+                                    color: white;
+                                    font-weight: 600;
+                                }
+                            }
+                            TouchArea {
+                                enabled: !root.chroma-has-image;
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.chroma-pick();
+                                }
+                            }
+                        }
+
+                        if root.chroma-has-result: HorizontalLayout {
+                            alignment: center;
+                            Segmented {
+                                width: 280px;
+                                options: ["Original", "Résultat", "Masque"];
+                                selected <=> root.chroma-view;
+                                changed => {
+                                    root.chroma-refresh();
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: center;
+                            PillButton {
+                                text: root.chroma-has-image ? "Changer" : "Choisir une image";
+                                icon: "image";
+                                variant: 1;
+                                enabled: !root.chroma-busy;
+                                clicked => {
+                                    root.chroma-pick();
+                                }
+                            }
+                            PillButton {
+                                text: "Détourer";
+                                icon: "drop";
+                                tint: Theme.c-chroma;
+                                enabled: root.chroma-has-image && !root.chroma-busy;
+                                clicked => {
+                                    root.chroma-run();
+                                }
+                            }
+                            if root.chroma-has-result: IconButton {
+                                icon: "save";
+                                enabled: !root.chroma-busy;
+                                clicked => {
+                                    root.chroma-save();
+                                }
+                            }
+                        }
+                        if root.chroma-info != "": Text {
+                            text: root.chroma-info;
+                            font-size: Theme.fs-small;
+                            color: Theme.text-muted;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+
+                        Card {
+                            height: opt.preferred-height;
+                            opt := VerticalLayout {
+                                padding: 20px;
+                                spacing: 14px;
+                                Text {
+                                    text: "Couleur à retirer";
+                                    font-weight: 700;
+                                    color: Theme.text;
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: start;
+                                    Chip {
+                                        text: "Vert";
+                                        swatch: #33d94d;
+                                        selected: root.chroma-preset == 0;
+                                        clicked => {
+                                            root.chroma-preset = 0;
+                                            root.chroma-r = 0.20;
+                                            root.chroma-g = 0.85;
+                                            root.chroma-b = 0.30;
+                                        }
+                                    }
+                                    Chip {
+                                        text: "Bleu";
+                                        swatch: #2a5cff;
+                                        selected: root.chroma-preset == 1;
+                                        clicked => {
+                                            root.chroma-preset = 1;
+                                            root.chroma-r = 0.16;
+                                            root.chroma-g = 0.36;
+                                            root.chroma-b = 1.0;
+                                        }
+                                    }
+                                    Chip {
+                                        text: "Autre";
+                                        swatch: rgb(root.chroma-r * 255, root.chroma-g * 255, root.chroma-b * 255);
+                                        selected: root.chroma-preset == 2;
+                                        clicked => {
+                                            root.chroma-preset = 2;
+                                        }
+                                    }
+                                }
+                                if root.chroma-preset == 2: VerticalLayout {
+                                    spacing: 6px;
+                                    LabeledSlider {
+                                        label: "Rouge";
+                                        value <=> root.chroma-r;
+                                    }
+                                    LabeledSlider {
+                                        label: "Vert";
+                                        value <=> root.chroma-g;
+                                    }
+                                    LabeledSlider {
+                                        label: "Bleu";
+                                        value <=> root.chroma-b;
+                                    }
+                                }
+                                Text {
+                                    text: "Le modèle a été entraîné en priorité sur le vert ; les autres couleurs sont expérimentales.";
+                                    font-size: 12px;
+                                    color: Theme.text-faint;
+                                    wrap: word-wrap;
+                                }
+                                LabeledSlider {
+                                    label: "Seuil de détection";
+                                    minimum: 0.05;
+                                    maximum: 0.95;
+                                    value <=> root.chroma-threshold;
+                                    edited => {
+                                        root.chroma-refresh();
+                                    }
+                                }
+                                HorizontalLayout {
+                                    Text {
+                                        text: "Bords adoucis";
+                                        color: Theme.text;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                    }
+                                    Toggle {
+                                        checked <=> root.chroma-soft;
+                                        toggled => {
+                                            root.chroma-refresh();
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: "Arrière-plan";
+                                    color: Theme.text;
+                                }
+                                Segmented {
+                                    options: ["Transparent", "Blanc", "Noir"];
+                                    selected <=> root.chroma-bg;
+                                    changed => {
+                                        root.chroma-refresh();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================ TIROIR
+        if root.drawer-open: Scrim {
+            dismiss => {
+                root.drawer-open = false;
+            }
+        }
+        Rectangle {
+                x: root.drawer-open ? 0 : -self.width - 20px;
+                width: min(320px, root.avail-w * 0.86);
+                height: root.avail-h;
+                background: Theme.surface;
+                border-radius: 0;
+                drop-shadow-blur: root.drawer-open ? 24px : 0;
+                drop-shadow-color: #00000060;
+                animate x { duration: 220ms; easing: ease-out; }
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        padding-bottom: 18px;
+                        Image {
+                            source: @image-url("../assets/icon.png");
+                            width: 44px;
+                            height: 44px;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Plimb Studio";
+                                font-size: 18px;
+                                font-weight: 800;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: "Version " + root.app-version;
+                                font-size: 12px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                    for item[i] in [
+                        { icon: "spark", label: "Accueil" },
+                        { icon: "layers", label: "Modèles" },
+                        { icon: "settings", label: "Réglages" },
+                        { icon: "refresh", label: "Mises à jour" },
+                        { icon: "external", label: "Plimb sur Hugging Face" },
+                        { icon: "external", label: "Code source (GitHub)" },
+                    ]: Rectangle {
+                        height: 50px;
+                        border-radius: 25px;
+                        background: dta.pressed ? Theme.surface-3 : dta.has-hover ? Theme.surface-2 : (i == 0 && root.page == 0) || (i == 1 && root.page == 2) ? Theme.accent-soft : transparent;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            spacing: 14px;
+                            Icon {
+                                y: (parent.height - self.height) / 2;
+                                name: item.icon;
+                                size: 20px;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: item.label;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            if i == 3 && root.update-available: Rectangle {
+                                y: (parent.height - self.height) / 2;
+                                width: 10px;
+                                height: 10px;
+                                border-radius: 5px;
+                                background: Theme.accent;
+                            }
+                            Rectangle {
+                                width: 12px;
+                            }
+                        }
+                        dta := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.drawer-open = false;
+                                if i == 0 {
+                                    root.go(0);
+                                } else if i == 1 {
+                                    root.go(2);
+                                } else if i == 2 {
+                                    root.settings-open = true;
+                                } else if i == 3 {
+                                    root.update-open = true;
+                                    if !root.update-available {
+                                        root.check-update();
+                                    }
+                                } else if i == 4 {
+                                    root.open-url("https://huggingface.co/plimb");
+                                } else {
+                                    root.open-url("https://github.com/plimb-ai/pilmb-app");
+                                }
+                            }
+                        }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+                }
+            }
+
+            // ============================================================ RÉGLAGES
+            if root.settings-open: Scrim {
+                dismiss => {
+                    root.settings-open = false;
+                }
+            }
+            if root.settings-open: Card {
+                width: min(root.avail-w - 32px, 520px);
+                height: min(root.avail-h - 48px, set-lay.preferred-height + 2px);
+                drop-shadow-blur: 30px;
+                drop-shadow-color: #00000050;
+                TouchArea { }
+                set-scroll := ScrollView {
+                    content-width: self.visible-width;
+                    content-height: set-lay.preferred-height;
+                    set-lay := VerticalLayout {
+                        width: set-scroll.visible-width;
+                        padding: 24px;
+                        spacing: 12px;
+                        HorizontalLayout {
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: "Réglages";
+                                    font-size: 24px;
+                                    font-weight: 800;
+                                    color: Theme.text;
+                                }
+                                Text {
+                                    text: "Plimb Studio " + root.app-version;
+                                    font-size: 12px;
+                                    color: Theme.text-muted;
+                                }
+                            }
+                            IconButton {
+                                icon: "close";
+                                clicked => {
+                                    root.settings-open = false;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "Thème";
+                            font-weight: 700;
+                            color: Theme.text;
+                        }
+                        Segmented {
+                            options: ["Auto", "Clair", "Sombre"];
+                            selected: Theme.mode;
+                            changed(i) => {
+                                root.set-theme(i);
+                            }
+                        }
+                        Rectangle {
+                            height: 1px;
+                            background: Theme.outline;
+                        }
+                        Text {
+                            text: "Mises à jour";
+                            font-weight: 700;
+                            color: Theme.text;
+                        }
+                        HorizontalLayout {
+                            Text {
+                                text: "Rechercher au démarrage";
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            Toggle {
+                                checked <=> root.auto-update;
+                                toggled(v) => {
+                                    root.set-auto-update(v);
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            alignment: start;
+                            PillButton {
+                                text: root.update-state == 1 ? "Recherche…" : "Rechercher maintenant";
+                                icon: "refresh";
+                                variant: 2;
+                                enabled: root.update-state != 1 && root.update-state != 2;
+                                clicked => {
+                                    root.check-update();
+                                }
+                            }
+                        }
+                        if root.update-available || root.update-message != "": HorizontalLayout {
+                            Text {
+                                text: root.update-available ? "Version " + root.update-version + " disponible" : root.update-message;
+                                font-size: Theme.fs-small;
+                                color: root.update-state == 3 ? Theme.danger : Theme.text-muted;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                wrap: word-wrap;
+                            }
+                        }
+                        if root.update-available: PillButton {
+                            text: "Installer la version " + root.update-version;
+                            icon: "download";
+                            clicked => {
+                                root.settings-open = false;
+                                root.update-open = true;
+                            }
+                        }
+                        Rectangle {
+                            height: 1px;
+                            background: Theme.outline;
+                        }
+                        Text {
+                            text: "Stockage";
+                            font-weight: 700;
+                            color: Theme.text;
+                        }
+                        Text {
+                            text: root.storage-text;
+                            font-size: Theme.fs-small;
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            PillButton {
+                                text: "Gérer les modèles";
+                                icon: "layers";
+                                variant: 2;
+                                clicked => {
+                                    root.settings-open = false;
+                                    root.go(2);
+                                }
+                            }
+                            if !root.mobile: PillButton {
+                                text: "Dossier";
+                                icon: "folder";
+                                variant: 2;
+                                clicked => {
+                                    root.open-data-folder();
+                                }
+                            }
+                        }
+                        Rectangle {
+                            height: 1px;
+                            background: Theme.outline;
+                        }
+                        Text {
+                            text: "À propos";
+                            font-weight: 700;
+                            color: Theme.text;
+                        }
+                        Text {
+                            text: "Plimb Studio exécute les modèles de Plimb entièrement sur votre appareil, grâce à un moteur d'inférence écrit en Rust. Les modèles sont distribués sous licence MIT ; consultez leur fiche pour les données d'entraînement et leurs limites.";
+                            font-size: Theme.fs-small;
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            PillButton {
+                                text: "Hugging Face";
+                                icon: "external";
+                                variant: 3;
+                                height: 38px;
+                                clicked => {
+                                    root.open-url("https://huggingface.co/plimb");
+                                }
+                            }
+                            PillButton {
+                                text: "GitHub";
+                                icon: "external";
+                                variant: 3;
+                                height: 38px;
+                                clicked => {
+                                    root.open-url("https://github.com/plimb-ai/pilmb-app");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============================================================ PARAMÈTRES DE GÉNÉRATION
+            if root.params-open: Scrim {
+                dismiss => {
+                    root.params-open = false;
+                }
+            }
+            if root.params-open: Card {
+                x: root.wide ? root.avail-w - self.width - 16px : 12px;
+                y: root.wide ? 16px : root.avail-h - self.height - 12px;
+                width: root.wide ? 420px : root.avail-w - 24px;
+                height: min(root.avail-h - 32px, par.preferred-height + 2px);
+                drop-shadow-blur: 30px;
+                drop-shadow-color: #00000050;
+                TouchArea { }
+                par-scroll := ScrollView {
+                    content-width: self.visible-width;
+                    content-height: par.preferred-height;
+                    par := VerticalLayout {
+                        width: par-scroll.visible-width;
+                        padding: 22px;
+                        spacing: 12px;
+                        HorizontalLayout {
+                            Text {
+                                text: "Paramètres de génération";
+                                font-size: 20px;
+                                font-weight: 800;
+                                color: Theme.text;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                            IconButton {
+                                icon: "close";
+                                clicked => {
+                                    root.params-open = false;
+                                }
+                            }
+                        }
+                        LabeledSlider {
+                            label: "Longueur maximale (tokens)";
+                            minimum: 16;
+                            maximum: 512;
+                            step: 1;
+                            decimals: 0;
+                            value <=> root.edit-params.max-tokens;
+                        }
+                        LabeledSlider {
+                            label: "Top-K";
+                            minimum: 1;
+                            maximum: 100;
+                            step: 1;
+                            decimals: 0;
+                            value <=> root.edit-params.top-k;
+                        }
+                        LabeledSlider {
+                            label: "Top-P";
+                            minimum: 0.05;
+                            maximum: 1;
+                            value <=> root.edit-params.top-p;
+                        }
+                        LabeledSlider {
+                            label: "Température";
+                            minimum: 0;
+                            maximum: 2;
+                            value <=> root.edit-params.temperature;
+                        }
+                        LabeledSlider {
+                            label: "Pénalité de répétition";
+                            minimum: 1;
+                            maximum: 2;
+                            value <=> root.edit-params.repetition-penalty;
+                        }
+                        Text {
+                            text: "Une température basse donne des réponses plus prévisibles, une température haute plus créatives.";
+                            font-size: 12px;
+                            color: Theme.text-faint;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            PillButton {
+                                text: "Par défaut";
+                                variant: 2;
+                                clicked => {
+                                    root.reset-params();
+                                    root.edit-params = root.gen-params;
+                                }
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                            }
+                            PillButton {
+                                text: "Annuler";
+                                variant: 3;
+                                clicked => {
+                                    root.params-open = false;
+                                }
+                            }
+                            PillButton {
+                                text: "OK";
+                                clicked => {
+                                    root.apply-params(root.edit-params);
+                                    root.params-open = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============================================================ MISE À JOUR
+            if root.update-open: Scrim {
+                dismiss => {
+                    if root.update-state != 2 {
+                        root.update-open = false;
+                    }
+                }
+            }
+            if root.update-open: Card {
+                width: min(root.avail-w - 32px, 480px);
+                height: min(root.avail-h - 48px, upd.preferred-height);
+                drop-shadow-blur: 30px;
+                drop-shadow-color: #00000050;
+                TouchArea { }
+                upd := VerticalLayout {
+                    padding: 24px;
+                    spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        CategoryBadge {
+                            tint: Theme.accent;
+                            icon: "refresh";
+                            size: 44px;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Text {
+                                text: root.update-available ? "Nouvelle version " + root.update-version : "Mises à jour";
+                                font-size: 20px;
+                                font-weight: 800;
+                                color: Theme.text;
+                                wrap: word-wrap;
+                            }
+                            Text {
+                                text: "Version installée : " + root.app-version;
+                                font-size: 12px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                    if root.update-available && root.update-notes != "": Rectangle {
+                        height: min(220px, notes.preferred-height + 24px);
+                        border-radius: Theme.radius-s;
+                        background: Theme.surface-2;
+                        notes-scroll := ScrollView {
+                            content-width: self.visible-width;
+                            content-height: notes.preferred-height + 24px;
+                            notes := Text {
+                                x: 12px;
+                                y: 12px;
+                                width: notes-scroll.visible-width - 24px;
+                                text: root.update-notes;
+                                font-size: Theme.fs-small;
+                                color: Theme.text;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                    if !root.update-available: Text {
+                        text: root.update-state == 1 ? "Recherche d'une nouvelle version…" : root.update-message;
+                        color: root.update-state == 3 ? Theme.danger : Theme.text-muted;
+                        wrap: word-wrap;
+                    }
+                    if root.update-state == 2: VerticalLayout {
+                        spacing: 6px;
+                        Text {
+                            text: root.update-message;
+                            font-size: Theme.fs-small;
+                            color: Theme.text-muted;
+                        }
+                        ProgressBar {
+                            progress: root.update-progress;
+                        }
+                    }
+                    if root.update-available && root.update-state == 3: Text {
+                        text: root.update-message;
+                        color: Theme.danger;
+                        font-size: Theme.fs-small;
+                        wrap: word-wrap;
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+                        PillButton {
+                            text: root.update-available ? "Plus tard" : "Fermer";
+                            variant: 3;
+                            enabled: root.update-state != 2;
+                            clicked => {
+                                root.update-open = false;
+                            }
+                        }
+                        if !root.update-available: PillButton {
+                            text: "Rechercher";
+                            icon: "refresh";
+                            variant: 2;
+                            enabled: root.update-state != 1;
+                            clicked => {
+                                root.check-update();
+                            }
+                        }
+                        if root.update-available: PillButton {
+                            text: root.mobile ? "Télécharger l'APK" : "Mettre à jour";
+                            icon: "download";
+                            enabled: root.update-state != 2;
+                            clicked => {
+                                root.install-update();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============================================================ GALERIE (Android)
+            if root.gallery-open: Rectangle {
+                background: Theme.bg;
+                TouchArea { }
+                VerticalLayout {
+                    TopBar {
+                        title: "Choisir une image";
+                        left-icon: "close";
+                        left-clicked => {
+                            root.gallery-open = false;
+                        }
+                    }
+                    if root.gallery.length == 0: VerticalLayout {
+                        alignment: center;
+                        padding: 32px;
+                        spacing: 14px;
+                        Text {
+                            text: root.gallery-message;
+                            color: Theme.text-muted;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        HorizontalLayout {
+                            alignment: center;
+                            PillButton {
+                                text: "Réessayer";
+                                icon: "refresh";
+                                clicked => {
+                                    root.gallery-retry();
+                                }
+                            }
+                        }
+                    }
+                    if root.gallery.length > 0: gal-scroll := ScrollView {
+                        vertical-stretch: 1;
+                        property <int> cols: max(3, floor(self.visible-width / 140px));
+                        property <length> cell: (self.visible-width - 8px) / self.cols;
+                        content-width: self.visible-width;
+                        content-height: ceil(root.gallery.length / self.cols) * self.cell + 8px;
+                        for g[i] in root.gallery: Rectangle {
+                            x: 4px + mod(i, gal-scroll.cols) * gal-scroll.cell;
+                            y: 4px + floor(i / gal-scroll.cols) * gal-scroll.cell;
+                            width: gal-scroll.cell;
+                            height: gal-scroll.cell;
+                            Rectangle {
+                                x: 3px;
+                                y: 3px;
+                                width: parent.width - 6px;
+                                height: parent.height - 6px;
+                                border-radius: 10px;
+                                background: Theme.surface-2;
+                                clip: true;
+                                Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    source: g.thumb;
+                                    image-fit: cover;
+                                }
+                            }
+                            TouchArea {
+                                clicked => {
+                                    root.gallery-select(g.path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============================================================ TOAST
+            if root.toast != "": Rectangle {
+                y: root.avail-h - self.height - 96px;
+                width: min(root.avail-w - 32px, toast-t.preferred-width + 40px);
+                height: toast-t.preferred-height + 24px;
+                border-radius: 14px;
+                background: Theme.dark ? #e9e9ef : #23252b;
+                toast-t := Text {
+                    width: min(root.avail-w - 72px, self.preferred-width);
+                    text: root.toast;
+                    color: Theme.dark ? #15171c : #f1f1f4;
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                }
+            }
+    }
+}

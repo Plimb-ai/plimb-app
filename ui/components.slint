@@ -1,0 +1,274 @@
+// Composants d'interface réutilisables.
+
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { Slider } from "std-widgets.slint";
+
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <brush> tint: Theme.text;
+    in property <bool> enabled: true;
+    in property <length> icon-size: 22px;
+    callback clicked();
+    width: 44px;
+    height: 44px;
+    border-radius: self.height / 2;
+    background: ta.pressed ? Theme.surface-3 : ta.has-hover ? Theme.surface-2 : transparent;
+    opacity: enabled ? 1 : 0.4;
+
+    Icon {
+        name: root.icon;
+        color: root.tint;
+        size: root.icon-size;
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Bouton "pilule" : variant 0 = plein (accent), 1 = tonal, 2 = contour, 3 = texte
+export component PillButton inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <int> variant: 0;
+    in property <bool> enabled: true;
+    in property <color> tint: Theme.accent;
+    callback clicked();
+    height: 46px;
+    min-width: lay.preferred-width;
+    border-radius: self.height / 2;
+    background: variant == 0 ? (ta.pressed ? tint.darker(0.15) : tint)
+        : variant == 1 ? (ta.pressed ? Theme.surface-3 : Theme.surface-2)
+        : (ta.pressed ? Theme.surface-2 : transparent);
+    border-width: variant == 2 ? 1px : 0;
+    border-color: Theme.outline;
+    opacity: enabled ? 1 : 0.45;
+
+    lay := HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 8px;
+        alignment: center;
+
+        if root.icon != "": Icon {
+            y: (parent.height - self.height) / 2;
+            name: root.icon;
+            size: 20px;
+            color: root.variant == 0 ? Theme.on-accent : Theme.text;
+        }
+        Text {
+            text: root.text;
+            vertical-alignment: center;
+            font-size: Theme.fs-body;
+            font-weight: 600;
+            color: root.variant == 0 ? Theme.on-accent : root.variant == 3 ? root.tint : Theme.text;
+        }
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    in property <color> swatch: transparent;
+    callback clicked();
+    height: 36px;
+    min-width: lay.preferred-width;
+    border-radius: 18px;
+    background: selected ? Theme.accent-soft : ta.pressed ? Theme.surface-3 : Theme.surface-2;
+    border-width: selected ? 1px : 0;
+    border-color: Theme.accent;
+
+    lay := HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 8px;
+        alignment: center;
+
+        if root.swatch != transparent: Rectangle {
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 8px;
+            background: root.swatch;
+            border-width: 1px;
+            border-color: #ffffff40;
+        }
+        Text {
+            text: root.text;
+            vertical-alignment: center;
+            font-size: Theme.fs-small;
+            color: root.selected ? Theme.accent : Theme.text;
+            font-weight: root.selected ? 600 : 400;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Tag inherits Rectangle {
+    in property <string> text;
+    height: 26px;
+    min-width: t.preferred-width + 20px;
+    border-radius: 13px;
+    background: Theme.surface-2;
+    t := Text {
+        text: root.text;
+        font-size: 12px;
+        color: Theme.text-muted;
+    }
+}
+
+export component Card inherits Rectangle {
+    background: Theme.surface;
+    border-radius: Theme.radius-l;
+    border-width: 1px;
+    border-color: Theme.outline;
+}
+
+export component ProgressBar inherits Rectangle {
+    in property <float> progress;
+    in property <color> tint: Theme.accent;
+    height: 6px;
+    border-radius: 3px;
+    background: Theme.surface-3;
+
+    Rectangle {
+        x: 0;
+        width: parent.width * clamp(root.progress, 0, 1);
+        height: 100%;
+        border-radius: 3px;
+        background: root.tint;
+        animate width { duration: 150ms; }
+    }
+}
+
+export component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> selected;
+    callback changed(int);
+    height: 42px;
+    border-radius: 21px;
+    border-width: 1px;
+    border-color: Theme.outline;
+    clip: true;
+
+    HorizontalLayout {
+        for opt[i] in root.options: Rectangle {
+            background: i == root.selected ? Theme.accent-soft : transparent;
+            border-radius: 21px;
+            Text {
+                text: opt;
+                font-size: Theme.fs-small;
+                font-weight: i == root.selected ? 600 : 400;
+                color: i == root.selected ? Theme.accent : Theme.text;
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.selected = i;
+                    root.changed(i);
+                }
+            }
+        }
+    }
+}
+
+export component Toggle inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 52px;
+    height: 30px;
+    border-radius: 15px;
+    background: checked ? Theme.accent : Theme.surface-3;
+    animate background { duration: 120ms; }
+
+    Rectangle {
+        width: 22px;
+        height: 22px;
+        y: 4px;
+        x: root.checked ? parent.width - self.width - 4px : 4px;
+        border-radius: 11px;
+        background: root.checked ? Theme.on-accent : Theme.text-muted;
+        animate x { duration: 120ms; easing: ease-out; }
+    }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}
+
+// Curseur avec libellé et valeur affichée.
+export component LabeledSlider inherits VerticalLayout {
+    in property <string> label;
+    in property <float> minimum: 0;
+    in property <float> maximum: 1;
+    in property <int> decimals: 2;
+    in property <float> step: 0.01;
+    in-out property <float> value;
+    callback edited(float);
+    spacing: 2px;
+
+    HorizontalLayout {
+        Text {
+            text: root.label;
+            font-size: Theme.fs-body;
+            color: Theme.text;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.decimals == 0 ? round(root.value) : round(root.value * pow(10, root.decimals)) / pow(10, root.decimals);
+            font-size: Theme.fs-body;
+            font-weight: 600;
+            color: Theme.accent;
+        }
+    }
+    Slider {
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: root.step;
+        value <=> root.value;
+        changed(v) => {
+            root.value = root.decimals == 0 ? round(v) : v;
+            root.edited(root.value);
+        }
+    }
+}
+
+// Fond assombri + feuille centrée (dialogue) ou latérale.
+export component Scrim inherits Rectangle {
+    callback dismiss();
+    background: Theme.scrim;
+    TouchArea {
+        clicked => {
+            root.dismiss();
+        }
+    }
+}
+
+export component SectionTitle inherits Text {
+    font-size: 17px;
+    font-weight: 700;
+    color: Theme.text;
+}
